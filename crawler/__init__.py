@@ -2,6 +2,7 @@ from utils import get_logger
 from crawler.frontier import Frontier
 from crawler.worker import Worker
 
+
 class Crawler(object):
     def __init__(self, config, restart, frontier_factory=Frontier, worker_factory=Worker):
         self.config = config
@@ -11,6 +12,7 @@ class Crawler(object):
         self.worker_factory = worker_factory
 
     def start_async(self):
+        self.logger.info(f"Creating {self.config.threads_count} workers")
         self.workers = [
             self.worker_factory(worker_id, self.config, self.frontier)
             for worker_id in range(self.config.threads_count)]
@@ -18,6 +20,7 @@ class Crawler(object):
             worker.start()
 
     def start(self):
+        self.logger.info(f"Starting crawler")
         self.start_async()
         self.join()
 

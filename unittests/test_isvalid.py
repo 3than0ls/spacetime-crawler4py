@@ -1,6 +1,6 @@
 import unittest
-
 from scraper import is_valid
+
 
 class TestIsValid(unittest.TestCase):
     def test_scheme(self):
@@ -12,14 +12,16 @@ class TestIsValid(unittest.TestCase):
     def test_bad_fileext(self):
         self.assertTrue(is_valid("http://www.ics.uci.edu/foo.txt"))
         self.assertFalse(is_valid("http://cs.uci.edu/foo.css"))
-        self.assertFalse(is_valid("http://today.uci.edu/department/information_computer_sciences/foo/bar/baz.jpg"))
+        self.assertFalse(is_valid(
+            "http://today.uci.edu/department/information_computer_sciences/foo/bar/baz.jpg"))
 
     def test_valid_domains(self):
         self.assertTrue(is_valid("https://ics.uci.edu/"))
         self.assertTrue(is_valid("http://hub.ics.uci.edu/"))
         self.assertTrue(is_valid("https://foo.cs.uci.edu/bar"))
         self.assertTrue(is_valid("http://research.informatics.uci.edu/foo"))
-        self.assertTrue(is_valid("https://today.uci.edu/department/information_computer_sciences/foo/bar/baz"))
+        self.assertTrue(is_valid(
+            "https://today.uci.edu/department/information_computer_sciences/foo/bar/baz"))
 
     def test_invalid_domains(self):
         self.assertTrue(is_valid("https://ics.uci.edu"))
@@ -27,7 +29,8 @@ class TestIsValid(unittest.TestCase):
         self.assertFalse(is_valid("https://engineering.uci.edu/"))
         self.assertFalse(is_valid("https://google.com"))
         self.assertFalse(is_valid("http://ics.uci.edu.evil.com/"))
-        self.assertFalse(is_valid("https://today.uci.edu/department/engineering/"))
+        self.assertFalse(
+            is_valid("https://today.uci.edu/department/engineering/"))
         self.assertFalse(is_valid("http://math.uci.edu/"))
         self.assertFalse(is_valid("http://uci.edu/"))
         self.assertFalse(is_valid("https://cnn.com"))
