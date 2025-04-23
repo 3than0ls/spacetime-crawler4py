@@ -1,0 +1,1 @@
+.webscraper-venv/Scripts/python.exe -m unittest "unittests/test_scraper.py"
