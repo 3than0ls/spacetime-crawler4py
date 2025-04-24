@@ -31,19 +31,19 @@ def extract_next_links(url, resp: Response) -> list[str]:
     links = []
 
     if not resp.status == 200:
-        log.error(
-            f"Response error status: {resp.error}\nError message: {resp.raw_response.content}")
+        log.error(f"Response error status: {resp.status}")
+        log.error(f"Response error data: {resp.status}")
         return links
 
-    if resp.raw_response is None:
+    if resp.raw_response is None and (res.raw_response.url is not None and res.raw_response.content is not None):
         log.error(
-            f"Response returned a 200 code, yet had no raw response. Skipping...")
+            f"Response returned a 200 code, yet had no raw response. Object is {res.raw_response} Skipping...")
         return links
 
     if resp.raw_response:
-        log.info(f"Extracting links from {resp.raw_response["url"]}")
-        log.info(f"Link contents length:\n{len(resp.raw_response["content"])}")
-        soup = BeautifulSoup(resp.raw_response["content"], "html.parser")
+        log.info(f"Extracting links from {resp.raw_response.url}")
+        log.info(f"Link contents length:{len(resp.raw_response.content)}")
+        soup = BeautifulSoup(resp.raw_response.content, "html.parser")
         all_links = soup.find_all("a", href=True)
         links = [a_tag['href']
                  for a_tag in all_links if is_valid(a_tag['href'])]
@@ -53,9 +53,17 @@ def extract_next_links(url, resp: Response) -> list[str]:
     return links
 
 
+VALID_DOMAINS = [
+    "ics.uci.edu",
+    "cs.uci.edu",
+    "informatics.uci.edu",
+    "stat.uci.edu",
+]
+
+
 def is_valid(url):
     """
-    Decide whether to crawl this url or not. 
+    Decide whether to crawl this url or not.
     If you decide to crawl it, return True; otherwise return False.
     There are already some conditions that return False.
     """
@@ -80,15 +88,15 @@ def is_valid(url):
         ):
             return False
 
+        # dumbest possible way I could if condition this
         if not (
-            domain.endswith("ics.uci.edu")
-            or domain.endswith("cs.uci.edu")
-            or domain.endswith("informatics.uci.edu")
-            or domain.endswith("stat.uci.edu")
-            or (
+            any(
+                (domain.endswith(f".{VALID_DOMAIN}")
+                 or domain == VALID_DOMAIN)
+                for VALID_DOMAIN in VALID_DOMAINS
+            ) or (
                 domain == "today.uci.edu"
-                and path.startswith("/department/information_computer_sciences/")
-            )
+                and path.startswith("/department/information_computer_sciences/"))
         ):
             return False
 

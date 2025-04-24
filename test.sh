@@ -1,10 +1,7 @@
 #!/bin/sh
 
-echo "Running unit tests from ./test.sh..."
+echo "Running unit tests from directory /unittests"
 
-for file in unittests/test_*.py; do
-    echo "-------------------------------------------------------------------------"
-    echo "==== Running unit tests found in $file ===="
-    echo "-------------------------------------------------------------------------"
-    python -m unittest $file
-done
+export TESTING=true
+
+python -m unittest discover ./unittests

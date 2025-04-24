@@ -46,7 +46,7 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> None:
     """
     try:
         parsed = urlparse(response_url)
-        log.info(f"Processing page {parsed.geturl}")
+        log.info(f"Processing page {parsed.geturl()}")
 
         # DELIVERABLE: UNIQUE PAGES
         unique_url = urlunparse([

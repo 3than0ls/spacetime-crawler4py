@@ -1,0 +1,29 @@
+https://www.ics.uci.edu/~chenli
+# private bad
+
+http://jujube.ics.uci.edu/www/learning.html
+# not sure what's wrong with this
+
+http://dblp.ics.uci.edu/authors
+# not sure what's wrong with this
+
+http://dblp.ics.uci.edu
+# not sure what's wrong with this
+
+http://news.nacs.uci.edu/2009/05/psearch-nacs-and-ics-collaborate
+# nacs needs to be removed
+
+https://asterixdb.ics.uci.edu/fuzzyjoin-mapreduce
+# not sure what's wrong with this
+
+http://flamingo.ics.uci.edu/localsearch/fuzzysearch
+# not sure what's wrong with this
+
+http://asterix.ics.uci.edu/fuzzyjoin-mapreduce
+# not sure what's wrong with this
+
+http://jujube.ics.uci.edu/localsearch/fuzzysearch
+# not sure what's wrong with this
+
+https://ics.uci.edu/faculty-staff-positions
+# not sure what's wrong with this

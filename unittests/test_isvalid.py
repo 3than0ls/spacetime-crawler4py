@@ -34,6 +34,9 @@ class TestIsValid(unittest.TestCase):
         self.assertFalse(is_valid("http://math.uci.edu/"))
         self.assertFalse(is_valid("http://uci.edu/"))
         self.assertFalse(is_valid("https://cnn.com"))
+        # newly added one: this should not be!
+        self.assertFalse(
+            is_valid("http://news.nacs.uci.edu/2009/05/psearch-nacs-and-ics-collaborate"))
 
 
 if __name__ == '__main__':
