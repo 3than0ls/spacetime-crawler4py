@@ -14,6 +14,12 @@ class TestIsValid(unittest.TestCase):
         self.assertFalse(is_valid("http://cs.uci.edu/foo.css"))
         self.assertFalse(is_valid(
             "http://today.uci.edu/department/information_computer_sciences/foo/bar/baz.jpg"))
+        self.assertFalse(is_valid(
+            "http://sli.ics.uci.edu/Pubs/Pubs?action=download&upname=nips99.pdf"
+        ))
+        self.assertFalse(is_valid(
+            "http://sli.ics.uci.edu/Pubs/Pubs?action=download&upname=nips99.ps"
+        ))
 
     def test_valid_domains(self):
         self.assertTrue(is_valid("https://ics.uci.edu/"))
@@ -37,6 +43,78 @@ class TestIsValid(unittest.TestCase):
         # newly added one: this should not be!
         self.assertFalse(
             is_valid("http://news.nacs.uci.edu/2009/05/psearch-nacs-and-ics-collaborate"))
+
+    def test_invalid_query(self):
+        # always caused by sli.ics.uci.edu
+        self.assertFalse(
+            is_valid("http://sli.ics.uci.edu/Category/PmWikiDeveloper?action=login"))
+        self.assertFalse(
+            is_valid("http://sli.ics.uci.edu/PmWiki/Uploads?action=upload&upname=file.doc"))
+        self.assertFalse(
+            is_valid("http://sli.ics.uci.edu/Pubs/Pubs?action=download&upname=nips99.ps"))
+        self.assertFalse(
+            is_valid("https://sli.ics.uci.edu/Classes-2008/Classes-2008?action=edit"))
+        self.assertFalse(
+            is_valid("http://sli.ics.uci.edu/PmWiki/WikiGroup?action=search&q=fmt%3Dgroup"))
+        self.assertFalse(
+            is_valid("https://sli.ics.uci.edu/Site/Preferences?action=source"))
+        self.assertFalse(
+            is_valid("https://sli.ics.uci.edu/Classes-2008/Classes-2008?action=edit"))
+
+    def test_hardcoded_robotstxt(self):
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/happening/news/page/3")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/people/sven-koenig")
+        )
+        self.assertFalse(
+            is_valid("https://www.informatics.uci.edu/research/*")
+        )
+        self.assertFalse(
+            is_valid("https://www.informatics.uci.edu/wp-admin/")
+        )
+        self.assertTrue(
+            is_valid("https://www.informatics.uci.edu/wp-admin/admin-ajax.php")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/happening/news/page/3")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/happening/news/page/3")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/happening/news/page/3")
+        )
+
+    def test_avoid_calendar_traps(self):
+        self.assertFalse(
+            is_valid("https://isg.ics.uci.edu/events/tag/talks/day/2024-11-08")
+        )
+        self.assertFalse(
+            is_valid(
+                "https://isg.ics.uci.edu/events/tag/talks/day/2025-02-03/?outlook-ical=1")
+        )
+
+        # arbitrary tests
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/04.24.2025")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/2025.04.24")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/4.24.25")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/4/24/25")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/25/24/4")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/04/24/25")
+        )
 
 
 if __name__ == '__main__':

@@ -31,8 +31,10 @@ def extract_next_links(url, resp: Response) -> list[str]:
     links = []
 
     if not resp.status == 200:
-        log.error(f"Response error status: {resp.status}")
+        log.error(
+            f"Response error status: {resp.status} - from fetched for {url}, acquired from {resp.url}")
         log.error(f"Response error data: {resp.status}")
+        log.error(f"Response raw response: {resp.raw_response}")
         return links
 
     if resp.raw_response is None and (res.raw_response.url is not None and res.raw_response.content is not None):
@@ -53,12 +55,21 @@ def extract_next_links(url, resp: Response) -> list[str]:
     return links
 
 
-VALID_DOMAINS = [
+VALID_DOMAINS = set([
     "ics.uci.edu",
     "cs.uci.edu",
     "informatics.uci.edu",
     "stat.uci.edu",
-]
+])
+
+FORBIDDEN_QUERIES = set(
+    ["action=login",
+     "action=download",
+     "action=upload",
+     "action=edit",
+     "action=search",
+     "action=source"
+     ])
 
 
 def is_valid(url):
@@ -88,7 +99,12 @@ def is_valid(url):
         ):
             return False
 
-        # dumbest possible way I could if condition this
+        # caused frequently by sli.ics.uci.edu; typically has too many redirections
+        # bad queries typically lead to a 4XX error, which glean no information anyway
+        if any((BAD_QUERY in parsed.query) for BAD_QUERY in FORBIDDEN_QUERIES):
+            return False
+
+        # filter only domain specific
         if not (
             any(
                 (domain.endswith(f".{VALID_DOMAIN}")
@@ -97,6 +113,36 @@ def is_valid(url):
             ) or (
                 domain == "today.uci.edu"
                 and path.startswith("/department/information_computer_sciences/"))
+        ):
+            return False
+
+        # alright... manually going through the robots.txt for the
+        # https://ics.uci.edu/robots.txt and https://cs.ics.uci.edu/robots.txt
+        # Disallow: /people
+        # Disallow: /happening
+        if (domain == "ics.uci.edu" or domain == "www.ics.uci.edu" or
+                domain == "cs.uci.edu" or domain == "www.cs.uci.edu") \
+                and (path.startswith("/people") or path.startswith("/happening")):
+            return False
+
+        # https://www.informatics.uci.edu/robots.txt and https://www.stat.uci.edu/robots.txt
+        # Disallow: /wp-admin/ but allow /wp-admin/admin-ajax.php
+        if (domain == "informatics.uci.edu" or domain == "www.informatics.uci.edu" or
+                domain == "stat.uci.edu" or domain == "www.stat.uci.edu") \
+                and (path.startswith("/wp-admin") and not path.startswith("/wp-admin/admin-ajax")):
+            return False
+        # Disallow: /research/ (informatics only)
+        if (domain == "informatics.uci.edu" or domain == "www.informatics.uci.edu") \
+                and path.startswith("/research"):
+            return False
+
+        # avoid calendar traps by avoiding paths that look like they contain a calendar
+        path_parts = parsed.path.split("/")
+        if any(
+            re.search(
+                r"(?:\d{2}|\d{4})\D+\d{1,2}\D+\d{1,2}|"
+                + r"\d{1,2}\D+\d{1,2}\D+(?:\d{2}|\d{4})", path_part)
+            for path_part in [*path_parts, parsed.path]
         ):
             return False
 
