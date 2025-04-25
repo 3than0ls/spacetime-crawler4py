@@ -77,9 +77,11 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> None:
         raise
 
 
-def finalize():
-    timestamp = datetime.now().strftime("%m-%d-%H:%M:%S")
-    fname = f"deliverables-{timestamp}"
+def finalize(fname=None):
+    if fname is None:
+        timestamp = datetime.now().strftime("%m-%d-%H:%M:%S")
+        fname = f"deliverables-{timestamp}"
+
     with open(fname, 'w+') as f:
         f.write("DELIVERABLE: UNIQUE PAGES")
         f.write(len(_UNIQUE_PAGES))

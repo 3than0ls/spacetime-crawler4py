@@ -4,6 +4,7 @@ from utils.response import Response
 from utils import get_logger
 from datetime import datetime
 from bs4 import BeautifulSoup
+import json
 
 timestamp = datetime.now().strftime("%m-%d-%H:%M:%S")
 log = get_logger("CUSTOM", f"LOG-{timestamp}")
@@ -18,6 +19,8 @@ def scraper(url, resp) -> list[str]:
 
 def extract_next_links(url, resp: Response) -> list[str]:
     """
+    I would much rather call this function "process_response" and still have it return a list with the hyperlinks
+
     url: the URL that was used to get the page
     resp.url: the actual url of the page
     resp.status: the status code returned by the server. 200 is OK, you got the page. Other numbers mean that there was some kind of problem.
@@ -34,7 +37,8 @@ def extract_next_links(url, resp: Response) -> list[str]:
         log.error(
             f"Response error status: {resp.status} - from fetched for {url}, acquired from {resp.url}")
         log.error(f"Response error data: {resp.status}")
-        log.error(f"Response raw response: {resp.raw_response}")
+        log.error(
+            f"Response raw response: {json.dumps(resp.raw_response)}")
         return links
 
     if resp.raw_response is None and (res.raw_response.url is not None and res.raw_response.content is not None):
@@ -68,7 +72,8 @@ FORBIDDEN_QUERIES = set(
      "action=upload",
      "action=edit",
      "action=search",
-     "action=source"
+     "action=source",
+     "share="
      ])
 
 
@@ -137,11 +142,14 @@ def is_valid(url):
             return False
 
         # avoid calendar traps by avoiding paths that look like they contain a calendar
+        # anything that looks like a calendar is probably evil
         path_parts = parsed.path.split("/")
         if any(
             re.search(
                 r"(?:\d{2}|\d{4})\D+\d{1,2}\D+\d{1,2}|"
-                + r"\d{1,2}\D+\d{1,2}\D+(?:\d{2}|\d{4})", path_part)
+                + r"\d{1,2}\D+\d{1,2}\D+(?:\d{2}|\d{4})|"
+                + r"(?:\d{2}|\d{4})\D+\d{1,2}|"
+                + r"\d{1,2}\D+(?:\d{2}|\d{4})", path_part)
             for path_part in [*path_parts, parsed.path]
         ):
             return False

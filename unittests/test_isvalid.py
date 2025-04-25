@@ -60,6 +60,14 @@ class TestIsValid(unittest.TestCase):
             is_valid("https://sli.ics.uci.edu/Site/Preferences?action=source"))
         self.assertFalse(
             is_valid("https://sli.ics.uci.edu/Classes-2008/Classes-2008?action=edit"))
+        self.assertFalse(
+            is_valid(
+                "https://wics.ics.uci.edu/spring-2021-week-1-wics-first-general-meeting/?share=twitter")
+        )
+        self.assertFalse(
+            is_valid(
+                "https://wics.ics.uci.edu/spring-2021-week-1-wics-first-general-meeting/?share=facebook")
+        )
 
     def test_hardcoded_robotstxt(self):
         self.assertFalse(
@@ -95,7 +103,10 @@ class TestIsValid(unittest.TestCase):
             is_valid(
                 "https://isg.ics.uci.edu/events/tag/talks/day/2025-02-03/?outlook-ical=1")
         )
-
+        self.assertFalse(
+            is_valid(
+                "http://wics.ics.uci.edu/events/category/wics-bonding/2021-03/?outlook-ical=1")
+        )
         # arbitrary tests
         self.assertFalse(
             is_valid("https://ics.uci.edu/04.24.2025")
