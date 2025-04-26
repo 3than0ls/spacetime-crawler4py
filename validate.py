@@ -45,12 +45,18 @@ INVALID_QUERIES = set([
     # these queries are associated with calendar actions that do not produce a webpage
     "ical=",
     "outlook=",
-    "outlook-ical="
+    "outlook-ical=",
+    # redirect to is never a good query
+    "redirect_to="
 ])
 
 # these fragments are associated with links that produce the exact same page, but pointing to a different section
 # they are the first line of defense against the fragment issue; that is
 # links with different fragments producing identical pages (because the domain and path are same)
+# UPDATE: design choice was made to ignore fragment when considering URLs
+# thus the same URL but with different fragments is treated as the same URL
+# rendering this as a minor optimization in the is_valid function, rather than anything useful
 INVALID_FRAGMENTS = set([
-    "comment-"
+    "comment-",
+    "respond"
 ])

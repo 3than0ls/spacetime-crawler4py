@@ -24,7 +24,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from collections import Counter
 from utils import get_logger
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urldefrag
 from deliverables.tokenization import tokenize
 import os
 
@@ -132,18 +132,10 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable
     """
     deliverable = Deliverable(response_url)
     try:
-        parsed = urlparse(response_url)
-        log.info(f"Processing page {parsed.geturl()}")
+        log.info(f"Processing page {response_url}")
 
         # DELIVERABLE: UNIQUE PAGES
-        unique_url = urlunparse([
-            parsed.scheme,
-            parsed.netloc,
-            parsed.path,
-            parsed.params,
-            parsed.query,
-            ''
-        ])
+        unique_url = urldefrag(response_url)[0]
         deliverable.unique_urls.add(unique_url)
 
         # DELIVERABLE: LONGEST PAGE
@@ -162,6 +154,7 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable
         deliverable.words += words
 
         # DELIVERABLE: SUBDOMAIN COUNT
+        parsed = urlparse(response_url)
         # all valid links end with .uci.edu anyway, but
         assert "uci.edu" in parsed.netloc, f"Somehow processing {response_url}, despite it not being a valid URL."
         deliverable.subdomains[parsed.netloc] += 1

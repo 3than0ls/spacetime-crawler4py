@@ -31,10 +31,10 @@ class TestExtractNextLinks(unittest.TestCase):
             "status": 200,
         })
         resp.raw_response = DummyRawResponse("test.html", text)
+        soup = BeautifulSoup(text, "html.parser")
+        out = extract_next_links("test.html", soup)
 
-        out = extract_next_links("test.html", resp)
-
-        self.assertEqual(len(out), 5)
+        self.assertEqual(len(out), 4)
         self.assertNotIn("https://cnn.com", out)
 
 

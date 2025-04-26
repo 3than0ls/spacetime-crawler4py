@@ -3,6 +3,8 @@
 Priority:
 Deliverable
 
+compile regexs
+
 Multithreading
 - create a non-reentrant deliverable object that is summated when the workers join
 

@@ -1,5 +1,5 @@
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urldefrag
 from utils.response import Response
 from utils import get_logger
 from datetime import datetime
@@ -15,14 +15,6 @@ log = get_logger("CUSTOM", f"LOG-{timestamp}")
 
 
 def scraper(url, resp: Response, deliverable: Deliverable) -> list[str]:
-    # psuedo: if response is invalid, return an empty list (currently done in extract_next_links)
-    # pseudo: soup = BeautifulSoup(resp.raw_response.content, "html.parser")
-    # deliverable |= process_page(response_url, soup)
-    links = extract_next_links(url, resp)
-    return [link for link in links if is_valid(link)]
-
-
-def extract_next_links(url, resp: Response) -> list[str]:
     """
     I would much rather call this function "process_response" and still have it return a list with the hyperlinks
 
@@ -34,8 +26,12 @@ def extract_next_links(url, resp: Response) -> list[str]:
             resp.raw_response.url: the url, again
             resp.raw_response.content: the content of the page!
     Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    """
 
+
+    This was changed from the original intention for scraper.
+    The previous version simply combined extract_next_links with is_valid to produce a list of valid URLs to crawl.
+    Now, we use it to validate a response (returning no new links if it is invalid), convert it into bs4 soup, then process soup, then extract next links from soup
+    """
     links = []
 
     if not resp.status == 200:
@@ -71,12 +67,29 @@ def extract_next_links(url, resp: Response) -> list[str]:
                 f"{resp.url} contents contain little information, despite returning 200.")
             log.warning(f"{resp.url} contents: {resp.raw_response}")
 
-        soup = BeautifulSoup(resp.raw_response.content, "html.parser")
-        all_links = soup.find_all("a", href=True)
-        links = [a_tag['href']
-                 for a_tag in all_links if is_valid(a_tag['href'])]
-        # log.info(
-        #     f"Found {len(links)} valid links (out of {len(all_links)} total links) in the response content")
+    # now that we know the raw response is something vaild, process it into a soup and use it
+    soup = BeautifulSoup(resp.raw_response.content, "html.parser")
+    deliverable |= process_page(resp.raw_response.url, soup)
+    links = extract_next_links(url, soup)
+    return links
+
+
+def extract_next_links(url, soup: BeautifulSoup) -> list[str]:
+    """
+    Extracts the next links for the crawler to crawl through.
+    Eliminates duplicate links found in the soup.
+    URLs with the same URL expect different hashes are considered duplicates.
+    """
+    all_links = soup.find_all("a", href=True)
+    links = [a_tag['href']
+             for a_tag in all_links if is_valid(a_tag['href'])]
+    # log.info(
+    #     f"Found {len(links)} valid links (out of {len(all_links)} total links) in the response content")
+
+    # design choice: URLs with different fragments but the same everything else are essentially duplicates; so we will cut them out
+    links = list(set(
+        [urldefrag(url)[0] for url in links]
+    ))
 
     return links
 
@@ -86,6 +99,11 @@ def is_valid(url):
     Decide whether to crawl this url or not.
     If you decide to crawl it, return True; otherwise return False.
     There are already some conditions that return False.
+
+    Rules are based on a long series of trial and error to see what links are good and what aren't,
+    As well as how to identify potential traps just based on URL (such as calendar traps)
+    TODO: how to deal with commit hash traps at leaf of the path
+    TODO: match infinite /page/X issues
     """
     try:
         parsed = urlparse(url)
@@ -135,10 +153,12 @@ def is_valid(url):
                     and any(path.startswith(invalid_path) for invalid_path in invalid_paths):
                 return False
 
-        # avoid calendar traps by avoiding paths that look like they contain a calendar
-        # anything that looks like a calendar is probably evil
+        # avoid crawler traps (all)
         path_parts = parsed.path.split("/")
         query_parts = parsed.query.split("&")
+
+        # avoid calendar traps by avoiding paths that look like they contain a calendar
+        # anything that looks like a calendar is probably evil
         if any(
             re.search(
                 r"(?:\d{2}|\d{4})\D+\d{1,2}\D+\d{1,2}|"
@@ -149,7 +169,13 @@ def is_valid(url):
         ):
             return False
 
+        # avoid invalid fragments; obsolete since we defragment all links
         if any((invalid_fragment in parsed.fragment) for invalid_fragment in INVALID_FRAGMENTS):
+            return False
+
+        # avoid page/X issues
+        # ensure the path /page/X can exist and is being followed
+        if len(path_parts) >= 2 and path_parts[-2] == "page" and re.search(r"\d+", path_parts[-1]):
             return False
 
         return True

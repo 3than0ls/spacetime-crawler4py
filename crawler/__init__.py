@@ -1,6 +1,7 @@
 from utils import get_logger
 from crawler.frontier import Frontier
 from crawler.worker import Worker
+from deliverables import Deliverable
 
 
 class Crawler(object):
@@ -23,7 +24,15 @@ class Crawler(object):
         self.logger.info(f"Starting crawler")
         self.start_async()
         self.join()
+        self.logger.info(f"Finished crawl, outputting deliverables.")
+        self.finish()
+        self.logger.info(f"Finished program.")
 
     def join(self):
         for worker in self.workers:
             worker.join()
+
+    def finish(self):
+        total_deliverables = Deliverable.accumulate(
+            [worker.deliverable for worker in self.workers])
+        total_deliverables.output()

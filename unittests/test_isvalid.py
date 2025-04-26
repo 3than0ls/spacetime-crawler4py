@@ -138,6 +138,19 @@ class TestIsValid(unittest.TestCase):
             is_valid("https://ngs.ics.uci.edu/becoming-impatient/#comment-3103")
         )
 
+    def test_avoid_page_trap(self):
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/category/research/page/10")
+        )
+        # arbitrary fake scenario
+        self.assertFalse(
+            is_valid("https://cs.uci.edu/page/10#abc")
+        )
+        self.assertFalse(
+            # no way to avoid this
+            is_valid("https://ics.uci.edu/category/research/page/10/24")
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
