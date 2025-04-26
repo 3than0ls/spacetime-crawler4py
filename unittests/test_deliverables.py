@@ -1,6 +1,6 @@
 import unittest
 from bs4 import BeautifulSoup
-from deliverables import process_page, finalize, Deliverable
+from deliverables import process_page, Deliverable
 from utils.response import Response
 from collections import Counter
 
@@ -22,12 +22,11 @@ class TestExtractNextLinks(unittest.TestCase):
         self.assertEqual(deliverable.longest_page_url,
                          "https://ics.uci.edu/notreal#fake")
 
-        # TODO: ALL OF THE BELOW NEED TO BE IMPLEMENTED
-        self.assertEqual(deliverable.words['foo'], 15)
-        self.assertEqual(deliverable.longest_page_len, 0)
-        self.assertEqual(len(deliverable.words), 17)
+        self.assertEqual(deliverable.words['foo'], 4)
+        self.assertEqual(deliverable.longest_page_len, 52)
+        self.assertEqual(len(deliverable.words), 14)
 
-    def test_accumulate_deliverable(self):
+    def test_accumuluate_deliverable(self):
         A = Deliverable("A")
         A.unique_urls = set(["xxx", "yyy", "xxx/abc", "yyy/abc/?def"])
         A.longest_page_len = 500
@@ -49,6 +48,61 @@ class TestExtractNextLinks(unittest.TestCase):
                          A.words + B.words)
         self.assertEqual(final.subdomains,
                          A.subdomains + B.subdomains)
+
+    def test_deliverable_multifile(self):
+        with open("./unittests/foo.html", 'r') as f:
+            foo = f.read()
+        with open("./unittests/bar.html", 'r') as f:
+            bar = f.read()
+
+        foo_soup = BeautifulSoup(foo, 'html.parser')
+        bar_soup = BeautifulSoup(bar, 'html.parser')
+
+        deliverable = Deliverable()
+        deliverable |= process_page("https://TEST_FOO.uci.edu", foo_soup)
+        deliverable |= process_page(
+            "https://TEST_BAR.uci.edu/longer_page#IGNORE_FRAG", bar_soup)
+
+        self.assertEqual(deliverable.longest_page_len, 117)
+        self.assertEqual(deliverable.longest_page_url,
+                         "https://TEST_BAR.uci.edu/longer_page#IGNORE_FRAG")
+        self.assertEqual(deliverable.unique_urls, set(
+            ["https://TEST_FOO.uci.edu", "https://TEST_BAR.uci.edu/longer_page"]))
+        self.assertEqual(set(deliverable.subdomains.keys()), set(
+            ["TEST_FOO.uci.edu", "TEST_BAR.uci.edu"]))
+        self.assertEqual(deliverable.words["foo"], 115)
+        self.assertEqual(deliverable.words["bar"], 116)
+        self.assertEqual(deliverable.words["baz"], 2)
+
+    def test_accumulate_multifile(self):
+        with open("./unittests/foo.html", 'r') as f:
+            foo = f.read()
+        with open("./unittests/bar.html", 'r') as f:
+            bar = f.read()
+
+        foo_soup = BeautifulSoup(foo, 'html.parser')
+        bar_soup = BeautifulSoup(bar, 'html.parser')
+
+        foo_deliv = Deliverable()
+        bar_deliv = Deliverable()
+        foo_deliv |= process_page("https://TEST_FOO.uci.edu", foo_soup)
+        bar_deliv |= process_page(
+            "https://TEST_BAR.uci.edu/longer_page#IGNORE_FRAG", bar_soup)
+
+        deliverable = Deliverable.accumulate([foo_deliv, bar_deliv])
+
+        self.assertEqual(deliverable.longest_page_len, 117)
+        self.assertEqual(deliverable.longest_page_url,
+                         "https://TEST_BAR.uci.edu/longer_page#IGNORE_FRAG")
+        self.assertEqual(deliverable.unique_urls, set(
+            ["https://TEST_FOO.uci.edu", "https://TEST_BAR.uci.edu/longer_page"]))
+        self.assertEqual(set(deliverable.subdomains.keys()), set(
+            ["TEST_FOO.uci.edu", "TEST_BAR.uci.edu"]))
+        self.assertEqual(deliverable.words["foo"], 115)
+        self.assertEqual(deliverable.words["bar"], 116)
+        self.assertEqual(deliverable.words["baz"], 2)
+
+        # deliverable.output()
 
 
 if __name__ == '__main__':

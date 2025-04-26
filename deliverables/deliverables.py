@@ -25,10 +25,15 @@ from bs4 import BeautifulSoup
 from collections import Counter
 from utils import get_logger
 from urllib.parse import urlparse, urlunparse
+from deliverables.tokenization import tokenize
+import os
 
 
-timestamp = datetime.now().strftime("%m-%d-%H:%M:%S")
+timestamp = datetime.now().strftime("%m-%d:%H:%M:%S")
 log = get_logger("DELIVERABLE", f"DELIVERABLE-{timestamp}")
+
+
+_DELIVERABLES_DIRNAME = "Deliverables"
 
 
 class Deliverable:
@@ -54,6 +59,39 @@ class Deliverable:
         # for the count of subdomains
         self.subdomains = Counter()
 
+    def output(self, fname=None):
+        if fname is None:
+            timestamp = datetime.now().strftime("%m-%d:%H:%M:%S")
+            fname = f"deliverables-{timestamp}"
+
+        if not os.path.exists(_DELIVERABLES_DIRNAME):
+            os.makedirs(_DELIVERABLES_DIRNAME)
+
+        fname = os.path.join(_DELIVERABLES_DIRNAME, fname)
+
+        with open(fname, 'w+') as f:
+            f.write(f"File name: {fname}\n")
+            f.write(f"Deliverable ID: {self.deliverable_id}\n")
+            f.write("\n")
+            f.write("--- DELIVERABLE 1: NUMBER OF UNIQUE PAGES ---\n")
+            f.write(str(len(self.unique_urls)))
+            f.write("\n")
+            f.write("--- DELIVERABLE 2: LONGEST PAGE IN WORDS ---\n")
+            f.write(f"PAGE: {self.longest_page_url}\n")
+            f.write(f"PAGE LENGTH: {self.longest_page_len}\n")
+            f.write("\n")
+            f.write("--- DELIVERABLE 3: MOST COMMON WORDS ---\n")
+            top_words = sorted(self.words.items(),
+                               key=lambda x: (-x[1], x[0]))[:50]
+            for word, freq in top_words:
+                f.write(f"{word}\t{freq}\n")
+            f.write("\n")
+            f.write("--- DELIVERABLE 4: SUBDOMAINS COUNT ---\n")
+            alphabetic_subdomains = sorted(
+                self.subdomains.items(), key=lambda x: (x[0], x[1]))
+            for subdomain, count in alphabetic_subdomains:
+                f.write(f"{subdomain}\t{count}\n")
+
     def __or__(self, other: "Deliverable") -> "Deliverable":
         raise NotImplementedError("Use ior (the |=) operator instead.")
 
@@ -71,8 +109,8 @@ class Deliverable:
         self.subdomains += other.subdomains
         return self
 
-    @classmethod
-    def accumulate(cls, deliverables: list["Deliverable"]) -> "Deliverable":
+    @staticmethod
+    def accumulate(deliverables: list["Deliverable"]) -> "Deliverable":
         """
         For multithreading purposes; but can be used if len(deliverables) is 1 too (single threaded).
         Accumulates the values in the deliverables to produce one new final deliverable.
@@ -111,14 +149,19 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable
         # DELIVERABLE: LONGEST PAGE
         # words are tokens that have HTML tags filtered out;
         # whether or not we define tokens to already not include HTMl tags is TBD
-        words = Counter()
+        page_text = response_soup.get_text(separator=' ', strip=True)
+        words = tokenize(page_text)
         num_words = sum(words.values())
-        if num_words >= deliverable.longest_page_len:
-            deliverable.longest_page_url = response_url
 
-        deliverable.words += words
+        deliverable.longest_page_url = response_url
+        deliverable.longest_page_len = num_words
+        # if num_words >= deliverable.longest_page_len:
+        #     deliverable.longest_page_url = response_url
 
         # DELIVERABLE: MOST COMMON WORDS
+        deliverable.words += words
+
+        # DELIVERABLE: SUBDOMAIN COUNT
         # all valid links end with .uci.edu anyway, but
         assert "uci.edu" in parsed.netloc, f"Somehow processing {response_url}, despite it not being a valid URL."
         deliverable.subdomains[parsed.netloc] += 1
@@ -128,29 +171,3 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable
         raise e
 
     return deliverable
-
-
-def finalize(fname=None):
-    if fname is None:
-        timestamp = datetime.now().strftime("%m-%d-%H:%M:%S")
-        fname = f"deliverables-{timestamp}"
-
-    with open(fname, 'w+') as f:
-        f.write("DELIVERABLE: UNIQUE PAGES")
-        f.write(len(_UNIQUE_PAGES))
-
-        f.write("DELIVERABLE: LONGEST PAGE")
-        f.write(f"PAGE: {_LONGEST_PAGE_NAME}")
-        f.write(f"PAGE LENGTH: {_LONGEST_PAGE_LEN}")
-
-        f.write("DELIVERABLE: MOST COMMON WORDS")
-        top_words = sorted(_MOST_COMMON_WORDS.items(),
-                           key=lambda x: (-x[1], x[0]))[:50]
-        for word, freq in top_words:
-            f.write(f"{word}:\t{freq}")
-
-        f.write("DELIVERABLE: SUBDOMAINS")
-        alphabetic_subdomains = sorted(
-            _SUBDOMAINS_MAP.items(), key=lambda x: (x[0], x[1]))
-        for subdomain, count in alphabetic_subdomains:
-            f.write(f"{subdomain}:\t{count}")

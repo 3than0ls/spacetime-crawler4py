@@ -8,7 +8,7 @@ import json
 from deliverables import Deliverable, process_page
 from validate import VALID_SCHEMES, VALID_DOMAINS, INVALID_DOMAINS, INVALID_PATHS, INVALID_FRAGMENTS, INVALID_QUERIES
 
-timestamp = datetime.now().strftime("%m-%d-%H:%M:%S")
+timestamp = datetime.now().strftime("%m-%d:%H:%M:%S")
 log = get_logger("CUSTOM", f"LOG-{timestamp}")
 
 # https://canvas.eee.uci.edu/courses/72511/assignments/1584020

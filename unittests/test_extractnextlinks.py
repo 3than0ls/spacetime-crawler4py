@@ -19,6 +19,9 @@ class TestExtractNextLinks(unittest.TestCase):
         hrefs = soup.find_all('a')
         self.assertEqual(len(hrefs), 6)
 
+        text = soup.get_text(separator=' ')
+        self.assertNotIn('<a>', text)
+
     def test_scraper(self):
         with open("./unittests/test.html", 'r') as f:
             text = f.read()
