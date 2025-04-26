@@ -6,7 +6,7 @@ from utils.response import Response
 
 class TestExtractNextLinks(unittest.TestCase):
     def test_process_page(self):
-        with open("./unittests/custom.html", 'r') as f:
+        with open("./unittests/test.html", 'r') as f:
             text = f.read()
 
         soup = BeautifulSoup(text, 'html.parser')

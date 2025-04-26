@@ -12,38 +12,24 @@ class DummyRawResponse:
 
 class TestExtractNextLinks(unittest.TestCase):
     def test_soup(self):
-        with open("./unittests/Wikipedia.html", 'r') as f:
+        with open("./unittests/test.html", 'r') as f:
             text = f.read()
 
         soup = BeautifulSoup(text, 'html.parser')
         hrefs = soup.find_all('a')
-        self.assertEqual(len(hrefs), 370)
+        self.assertEqual(len(hrefs), 6)
 
-    def test_extract_wikipedia(self):
-        with open("./unittests/Wikipedia.html", 'r') as f:
+    def test_scraper(self):
+        with open("./unittests/test.html", 'r') as f:
             text = f.read()
 
         resp = Response({
-            "url": "x",
+            "url": "test.html",
             "status": 200,
         })
-        resp.raw_response = DummyRawResponse("Wikipedia", text)
+        resp.raw_response = DummyRawResponse("test.html", text)
 
-        out = extract_next_links("x", resp)
-
-        self.assertEqual(len(out), 0)
-
-    def test_scraper_custom(self):
-        with open("./unittests/custom.html", 'r') as f:
-            text = f.read()
-
-        resp = Response({
-            "url": "x",
-            "status": 200,
-        })
-        resp.raw_response = DummyRawResponse("custom.html", text)
-
-        out = extract_next_links("custom.html", resp)
+        out = extract_next_links("test.html", resp)
 
         self.assertEqual(len(out), 5)
         self.assertNotIn("https://cnn.com", out)

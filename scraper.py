@@ -5,6 +5,7 @@ from utils import get_logger
 from datetime import datetime
 from bs4 import BeautifulSoup
 import json
+from validate import VALID_SCHEMES, VALID_DOMAINS, INVALID_DOMAINS, INVALID_PATHS, INVALID_FRAGMENTS, INVALID_QUERIES
 
 timestamp = datetime.now().strftime("%m-%d-%H:%M:%S")
 log = get_logger("CUSTOM", f"LOG-{timestamp}")
@@ -37,44 +38,43 @@ def extract_next_links(url, resp: Response) -> list[str]:
         log.error(
             f"Response error status: {resp.status} - from fetched for {url}, acquired from {resp.url}")
         log.error(f"Response error data: {resp.status}")
-        log.error(
-            f"Response raw response: {json.dumps(resp.raw_response)}")
+        if resp.raw_response is not None:
+            log.error(
+                f"Response raw response: {resp.raw_response.content}")
         return links
 
-    if resp.raw_response is None and (res.raw_response.url is not None and res.raw_response.content is not None):
+    # essentially a type check to ensure these all exist
+    if resp.raw_response is None or resp.raw_response.url is None or resp.raw_response.content is None:
         log.error(
-            f"Response returned a 200 code, yet had no raw response. Object is {res.raw_response} Skipping...")
+            f"Response returned a 200 code, yet had no raw response.")
         return links
 
     if resp.raw_response:
-        log.info(f"Extracting links from {resp.raw_response.url}")
-        log.info(f"Link contents length:{len(resp.raw_response.content)}")
+        log.info(
+            f"Processing page fetched for {url}, acquired from {resp.url}")
+        log.info(f"Page contents length: {len(resp.raw_response.content)}")
+        content_length = len(resp.raw_response.content)
+
+        if url != resp.url:
+            log.warning(
+                f"Fetched URL was not an exact match with response URL ({url} and {resp.url})")
+        if url not in resp.url:
+            log.warning(
+                f"Fetched URL was not near match with response URL ({url} and {resp.url})")
+
+        if content_length < 100:
+            log.warning(
+                f"{resp.url} contents contain little information, despite returning 200.")
+            log.warning(f"{resp.url} contents: {resp.raw_response}")
+
         soup = BeautifulSoup(resp.raw_response.content, "html.parser")
         all_links = soup.find_all("a", href=True)
         links = [a_tag['href']
                  for a_tag in all_links if is_valid(a_tag['href'])]
-        log.info(
-            f"Found {len(links)} valid links (out of {len(all_links)} total links) in the response content")
+        # log.info(
+        #     f"Found {len(links)} valid links (out of {len(all_links)} total links) in the response content")
 
     return links
-
-
-VALID_DOMAINS = set([
-    "ics.uci.edu",
-    "cs.uci.edu",
-    "informatics.uci.edu",
-    "stat.uci.edu",
-])
-
-FORBIDDEN_QUERIES = set(
-    ["action=login",
-     "action=download",
-     "action=upload",
-     "action=edit",
-     "action=search",
-     "action=source",
-     "share="
-     ])
 
 
 def is_valid(url):
@@ -89,7 +89,7 @@ def is_valid(url):
         domain = parsed.netloc.lower()
         path = parsed.path.lower()
 
-        if not parsed.scheme in set(["http", "https"]):
+        if not parsed.scheme in VALID_SCHEMES:
             return False
 
         if re.match(
@@ -106,52 +106,46 @@ def is_valid(url):
 
         # caused frequently by sli.ics.uci.edu; typically has too many redirections
         # bad queries typically lead to a 4XX error, which glean no information anyway
-        if any((BAD_QUERY in parsed.query) for BAD_QUERY in FORBIDDEN_QUERIES):
+        if any((invalid_query in parsed.query) for invalid_query in INVALID_QUERIES):
             return False
 
-        # filter only domain specific
+        # filter only domain specific; avoid stepping out of boundaries
         if not (
             any(
-                (domain.endswith(f".{VALID_DOMAIN}")
-                 or domain == VALID_DOMAIN)
-                for VALID_DOMAIN in VALID_DOMAINS
+                (domain.endswith(f".{valid_domain}")
+                 or domain == valid_domain)
+                for valid_domain in VALID_DOMAINS
             ) or (
                 domain == "today.uci.edu"
                 and path.startswith("/department/information_computer_sciences/"))
         ):
             return False
 
-        # alright... manually going through the robots.txt for the
-        # https://ics.uci.edu/robots.txt and https://cs.ics.uci.edu/robots.txt
-        # Disallow: /people
-        # Disallow: /happening
-        if (domain == "ics.uci.edu" or domain == "www.ics.uci.edu" or
-                domain == "cs.uci.edu" or domain == "www.cs.uci.edu") \
-                and (path.startswith("/people") or path.startswith("/happening")):
+        # some websites have a robots.txt that explicitly state Disallow: /
+        # these sites return a 608 from cache server if attempted to be downloaded
+        if domain in INVALID_DOMAINS:
             return False
 
-        # https://www.informatics.uci.edu/robots.txt and https://www.stat.uci.edu/robots.txt
-        # Disallow: /wp-admin/ but allow /wp-admin/admin-ajax.php
-        if (domain == "informatics.uci.edu" or domain == "www.informatics.uci.edu" or
-                domain == "stat.uci.edu" or domain == "www.stat.uci.edu") \
-                and (path.startswith("/wp-admin") and not path.startswith("/wp-admin/admin-ajax")):
-            return False
-        # Disallow: /research/ (informatics only)
-        if (domain == "informatics.uci.edu" or domain == "www.informatics.uci.edu") \
-                and path.startswith("/research"):
-            return False
+        for _domain, invalid_paths in INVALID_PATHS.items():
+            if (domain == _domain or domain == f"www.{_domain}") \
+                    and any(path.startswith(invalid_path) for invalid_path in invalid_paths):
+                return False
 
         # avoid calendar traps by avoiding paths that look like they contain a calendar
         # anything that looks like a calendar is probably evil
         path_parts = parsed.path.split("/")
+        query_parts = parsed.query.split("&")
         if any(
             re.search(
                 r"(?:\d{2}|\d{4})\D+\d{1,2}\D+\d{1,2}|"
                 + r"\d{1,2}\D+\d{1,2}\D+(?:\d{2}|\d{4})|"
                 + r"(?:\d{2}|\d{4})\D+\d{1,2}|"
                 + r"\d{1,2}\D+(?:\d{2}|\d{4})", path_part)
-            for path_part in [*path_parts, parsed.path]
+            for path_part in [*path_parts, *query_parts, parsed.path]
         ):
+            return False
+
+        if any((invalid_fragment in parsed.fragment) for invalid_fragment in INVALID_FRAGMENTS):
             return False
 
         return True

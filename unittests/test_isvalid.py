@@ -82,18 +82,20 @@ class TestIsValid(unittest.TestCase):
         self.assertFalse(
             is_valid("https://www.informatics.uci.edu/wp-admin/")
         )
-        self.assertTrue(
-            is_valid("https://www.informatics.uci.edu/wp-admin/admin-ajax.php")
-        )
+        # should return True since it technically is valid, but literally only contains "0", so we'll disclude it
+        # self.assertTrue(
+        #     is_valid("https://www.informatics.uci.edu/wp-admin/admin-ajax.php")
+        # )
         self.assertFalse(
             is_valid("https://ics.uci.edu/happening/news/page/3")
         )
         self.assertFalse(
-            is_valid("https://ics.uci.edu/happening/news/page/3")
+            is_valid("https://www.ics.uci.edu/happening/news/page/3")
         )
         self.assertFalse(
             is_valid("https://ics.uci.edu/happening/news/page/3")
         )
+        self.assertFalse(is_valid("https://intranet.ics.uci.edu/"))
 
     def test_avoid_calendar_traps(self):
         self.assertFalse(
@@ -106,6 +108,10 @@ class TestIsValid(unittest.TestCase):
         self.assertFalse(
             is_valid(
                 "http://wics.ics.uci.edu/events/category/wics-bonding/2021-03/?outlook-ical=1")
+        )
+        # these are found in the query portion, not the path portion
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/page/2/?post_type=tribe_events&eventDisplay=day&tribe_events_cat=graduate-programs&eventDate=2025-04-20&ical=1")
         )
         # arbitrary tests
         self.assertFalse(
@@ -124,7 +130,12 @@ class TestIsValid(unittest.TestCase):
             is_valid("https://ics.uci.edu/25/24/4")
         )
         self.assertFalse(
-            is_valid("https://ics.uci.edu/04/24/25")
+            is_valid("https://www.ics.uci.edu/04/24/25")
+        )
+
+    def test_avoid_fragments(self):
+        self.assertFalse(
+            is_valid("https://ngs.ics.uci.edu/becoming-impatient/#comment-3103")
         )
 
 
