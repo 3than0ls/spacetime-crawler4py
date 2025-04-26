@@ -5,6 +5,7 @@ from utils import get_logger
 from datetime import datetime
 from bs4 import BeautifulSoup
 import json
+from deliverables import Deliverable, process_page
 from validate import VALID_SCHEMES, VALID_DOMAINS, INVALID_DOMAINS, INVALID_PATHS, INVALID_FRAGMENTS, INVALID_QUERIES
 
 timestamp = datetime.now().strftime("%m-%d-%H:%M:%S")
@@ -13,7 +14,10 @@ log = get_logger("CUSTOM", f"LOG-{timestamp}")
 # https://canvas.eee.uci.edu/courses/72511/assignments/1584020
 
 
-def scraper(url, resp) -> list[str]:
+def scraper(url, resp: Response, deliverable: Deliverable) -> list[str]:
+    # psuedo: if response is invalid, return an empty list (currently done in extract_next_links)
+    # pseudo: soup = BeautifulSoup(resp.raw_response.content, "html.parser")
+    # deliverable |= process_page(response_url, soup)
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 

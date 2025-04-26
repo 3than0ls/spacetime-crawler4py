@@ -22,28 +22,77 @@ As a concrete deliverable of this project, besides the code itself, you must sub
 
 from datetime import datetime
 from bs4 import BeautifulSoup
-from collections import defaultdict
+from collections import Counter
 from utils import get_logger
 from urllib.parse import urlparse, urlunparse
-
-_UNIQUE_PAGES = set()
-
-_LONGEST_PAGE_LEN = 0
-_LONGEST_PAGE_NAME = None
-
-_MOST_COMMON_WORDS = defaultdict(int)
-
-_SUBDOMAINS_MAP = defaultdict(int)
 
 
 timestamp = datetime.now().strftime("%m-%d-%H:%M:%S")
 log = get_logger("DELIVERABLE", f"DELIVERABLE-{timestamp}")
 
 
-def process_page(response_url: str, response_soup: BeautifulSoup) -> None:
+class Deliverable:
+    """
+    Responsible for managing the data used in the project deliverable for one worker. 
+    When single threaded, this object represents the deliverables for the entire crawl.
+    When multithreaded, the deliverables must be merged together before producing the final deliverable data.
+    """
+
+    def __init__(self, deliverable_id=None):
+        self.deliverable_id = deliverable_id
+
+        # self explanatory data representing deliverable objectives
+        self.unique_urls = set()
+
+        # for the page with longest length
+        self.longest_page_len = 0
+        self.longest_page_url = None
+
+        # for the 50 most common words
+        self.words = Counter()
+
+        # for the count of subdomains
+        self.subdomains = Counter()
+
+    def __or__(self, other: "Deliverable") -> "Deliverable":
+        raise NotImplementedError("Use ior (the |=) operator instead.")
+
+    def __ior__(self, other: "Deliverable") -> None:
+        """
+        Merge two deliverables! Just a neat way to do this.
+        Used in the accumulate function below, and to "join" the worker's deliverable with process_page's output.
+        Almost doing too much.
+        """
+        self.unique_urls |= other.unique_urls
+        if other.longest_page_len >= self.longest_page_len:
+            self.longest_page_len = other.longest_page_len
+            self.longest_page_url = other.longest_page_url
+        self.words += other.words
+        self.subdomains += other.subdomains
+        return self
+
+    @classmethod
+    def accumulate(cls, deliverables: list["Deliverable"]) -> "Deliverable":
+        """
+        For multithreading purposes; but can be used if len(deliverables) is 1 too (single threaded).
+        Accumulates the values in the deliverables to produce one new final deliverable.
+        """
+        log.info(
+            f"Accumulating {len(deliverables)} into a single deliverable object.")
+        accumulated = Deliverable("--FINAL--")
+
+        for deliverable in deliverables:
+            accumulated |= deliverable
+
+        return accumulated
+
+
+def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable:
     """
     Process a response's url and content (in the form of bs4 BeautifulSoup) to help answer deliverable questions.
+    Returns a deliverable representing the data gleaned from the url/page/soup.
     """
+    deliverable = Deliverable(response_url)
     try:
         parsed = urlparse(response_url)
         log.info(f"Processing page {parsed.geturl()}")
@@ -57,24 +106,28 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> None:
             parsed.query,
             ''
         ])
-        _UNIQUE_PAGES.add(unique_url)
+        deliverable.unique_urls.add(unique_url)
 
         # DELIVERABLE: LONGEST PAGE
-        # words and tokens are the same in this scenario
-        words = defaultdict(int)
+        # words are tokens that have HTML tags filtered out;
+        # whether or not we define tokens to already not include HTMl tags is TBD
+        words = Counter()
+        num_words = sum(words.values())
+        if num_words >= deliverable.longest_page_len:
+            deliverable.longest_page_url = response_url
 
-        # TODO: IMPLEMENT
-        for word, amount in words:
-            _MOST_COMMON_WORDS[word] += amount
+        deliverable.words += words
 
         # DELIVERABLE: MOST COMMON WORDS
         # all valid links end with .uci.edu anyway, but
         assert "uci.edu" in parsed.netloc, f"Somehow processing {response_url}, despite it not being a valid URL."
-        _SUBDOMAINS_MAP[parsed.netloc] += 1
+        deliverable.subdomains[parsed.netloc] += 1
 
     except TypeError as e:
         log.error(e)
-        raise
+        raise e
+
+    return deliverable
 
 
 def finalize(fname=None):
