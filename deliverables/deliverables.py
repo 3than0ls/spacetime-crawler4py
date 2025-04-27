@@ -84,7 +84,7 @@ class Deliverable:
                     },
                     "words": dict(self.words),
                     "subdomains": dict(self.subdomains)
-                }, sort_keys=True
+                }, fp=fname, sort_keys=True, indent=4
             )
 
     def output(self, fname=None):
