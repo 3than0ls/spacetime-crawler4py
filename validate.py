@@ -29,7 +29,12 @@ INVALID_PATHS = {
     # informatics and stat also have a path /wp-admin/admin-ajax.php that falls under /wp-admin,
     # and while it's valid, it contains literally zero data except a 0.
     "informatics.uci.edu": set(["/wp-admin", "/research"]),
-    "stat.uci.edu": set(["/wp-admin"])
+    "stat.uci.edu": set(["/wp-admin"]),
+    # randomly found robots.txt says for this website:
+    "www-db.ics.uci.edu": set(["/cgi-bin", "/web-images", "/downloads", "/glimpse_index", "/pages/internal"]),
+    # not actually disallowed, but this guy publishes a lot of blogs, and then has a bunch of tags for each blog
+    # each tag doesn't actually produce new content; several tags point to the same content
+    "ngs.ics.uci.edu": set(["/tag"])
 }
 
 

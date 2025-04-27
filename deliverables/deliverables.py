@@ -27,6 +27,7 @@ from utils import get_logger
 from urllib.parse import urlparse, urldefrag
 from deliverables.tokenization import tokenize
 import os
+import json
 
 
 timestamp = datetime.now().strftime("%m-%d:%H:%M:%S")
@@ -44,10 +45,13 @@ class Deliverable:
     """
 
     def __init__(self, deliverable_id=None):
-        self.deliverable_id = deliverable_id
+        self._deliverable_id = deliverable_id
+        self._timestamp = datetime.now().strftime("%m-%d:%H:%M:%S")
 
-        # self explanatory data representing deliverable objectives
-        self.unique_urls = set()
+        # map of URL to content size (in number of tokens)
+        # the keys of this provide UNIQUE_URLS
+        # the values provide some insightful debugging data
+        self.url_token_sizes = dict()  # url: num of tokens
 
         # for the page with longest length
         self.longest_page_len = 0
@@ -59,38 +63,65 @@ class Deliverable:
         # for the count of subdomains
         self.subdomains = Counter()
 
-    def output(self, fname=None):
-        if fname is None:
-            timestamp = datetime.now().strftime("%m-%d:%H:%M:%S")
-            fname = f"deliverables-{timestamp}"
-
+    def _create_deliverables_dir(self):
         if not os.path.exists(_DELIVERABLES_DIRNAME):
             os.makedirs(_DELIVERABLES_DIRNAME)
 
+    def _json_dump(self, fname=None):
+        if fname is None:
+            fname = f"deliverables-{self._timestamp}-dump"
+
         fname = os.path.join(_DELIVERABLES_DIRNAME, fname)
+        self._create_deliverables_dir()
+
+        with open(fname, 'w+') as f:
+            json.dump(
+                {
+                    "url_token_size": self.url_token_sizes,
+                    "longest_page": {
+                        "len": self.longest_page_len,
+                        "url": self.longest_page_url
+                    },
+                    "words": dict(self.words),
+                    "subdomains": dict(self.subdomains)
+                }, sort_keys=True
+            )
+
+    def output(self, fname=None):
+        if fname is None:
+            fname = f"deliverables-{self._timestamp}"
+
+        self._create_deliverables_dir()
+        fname = os.path.join(_DELIVERABLES_DIRNAME, fname)
+
+        num_unique_urls = len(self.url_token_sizes)
+        longest_page = self.longest_page_url
+        longest_page_len = self.longest_page_len
+        top_words = sorted(self.words.items(),
+                           key=lambda x: (-x[1], x[0]))[:50]
+        subdomains_count = sorted(
+            self.subdomains.items(), key=lambda x: (x[0], x[1]))
 
         with open(fname, 'w+') as f:
             f.write(f"File name: {fname}\n")
-            f.write(f"Deliverable ID: {self.deliverable_id}\n")
+            f.write(f"Deliverable ID: {self._deliverable_id}\n")
             f.write("\n")
             f.write("--- DELIVERABLE 1: NUMBER OF UNIQUE PAGES ---\n")
-            f.write(str(len(self.unique_urls)))
+            f.write(f"UNIQUE PAGES: {num_unique_urls}")
             f.write("\n")
             f.write("--- DELIVERABLE 2: LONGEST PAGE IN WORDS ---\n")
-            f.write(f"PAGE: {self.longest_page_url}\n")
-            f.write(f"PAGE LENGTH: {self.longest_page_len}\n")
+            f.write(f"PAGE: {longest_page}\n")
+            f.write(f"PAGE LENGTH: {longest_page_len}\n")
             f.write("\n")
             f.write("--- DELIVERABLE 3: MOST COMMON WORDS ---\n")
-            top_words = sorted(self.words.items(),
-                               key=lambda x: (-x[1], x[0]))[:50]
             for word, freq in top_words:
                 f.write(f"{word}\t{freq}\n")
             f.write("\n")
             f.write("--- DELIVERABLE 4: SUBDOMAINS COUNT ---\n")
-            alphabetic_subdomains = sorted(
-                self.subdomains.items(), key=lambda x: (x[0], x[1]))
-            for subdomain, count in alphabetic_subdomains:
+            for subdomain, count in subdomains_count:
                 f.write(f"{subdomain}\t{count}\n")
+
+        self._json_dump()
 
     def __or__(self, other: "Deliverable") -> "Deliverable":
         raise NotImplementedError("Use ior (the |=) operator instead.")
@@ -101,7 +132,7 @@ class Deliverable:
         Used in the accumulate function below, and to "join" the worker's deliverable with process_page's output.
         Almost doing too much.
         """
-        self.unique_urls |= other.unique_urls
+        self.url_token_sizes |= other.url_token_sizes
         if other.longest_page_len >= self.longest_page_len:
             self.longest_page_len = other.longest_page_len
             self.longest_page_url = other.longest_page_url
@@ -134,21 +165,19 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable
     try:
         log.info(f"Processing page {response_url}")
 
-        # DELIVERABLE: UNIQUE PAGES
-        unique_url = urldefrag(response_url)[0]
-        deliverable.unique_urls.add(unique_url)
-
-        # DELIVERABLE: LONGEST PAGE
-        # words are tokens that have HTML tags filtered out;
-        # whether or not we define tokens to already not include HTMl tags is TBD
         page_text = response_soup.get_text(separator=' ', strip=True)
         words = tokenize(page_text)
         num_words = sum(words.values())
 
+        # DELIVERABLE: UNIQUE PAGES
+        unique_url = urldefrag(response_url)[0]
+        deliverable.url_token_sizes[unique_url] = num_words
+
+        # DELIVERABLE: LONGEST PAGE
+        # words are tokens that have HTML tags filtered out;
+        # whether or not we define tokens to already not include HTMl tags is TBD
         deliverable.longest_page_url = response_url
         deliverable.longest_page_len = num_words
-        # if num_words >= deliverable.longest_page_len:
-        #     deliverable.longest_page_url = response_url
 
         # DELIVERABLE: MOST COMMON WORDS
         deliverable.words += words

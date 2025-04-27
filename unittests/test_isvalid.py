@@ -20,6 +20,9 @@ class TestIsValid(unittest.TestCase):
         self.assertFalse(is_valid(
             "http://sli.ics.uci.edu/Pubs/Pubs?action=download&upname=nips99.ps"
         ))
+        self.assertFalse(is_valid(
+            "https://ics.uci.edu/~shantas/tutorials/20-icde-crypto_encryption_secret-sharing_sgx_tutorial.ppsx"
+        ))
 
     def test_valid_domains(self):
         self.assertTrue(is_valid("https://ics.uci.edu/"))
@@ -96,6 +99,8 @@ class TestIsValid(unittest.TestCase):
             is_valid("https://ics.uci.edu/happening/news/page/3")
         )
         self.assertFalse(is_valid("https://intranet.ics.uci.edu/"))
+        self.assertFalse(
+            is_valid("https://www-db.ics.uci.edu/glimpse_index/wgindex.shtml"))
 
     def test_avoid_calendar_traps(self):
         self.assertFalse(
@@ -141,6 +146,21 @@ class TestIsValid(unittest.TestCase):
     def test_avoid_page_trap(self):
         self.assertFalse(
             is_valid("https://ics.uci.edu/category/research/page/10")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/category/article/awards/page/7")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/category/article/awards/page/6")
+        )
+        self.assertFalse(
+            is_valid("https://ics.uci.edu/category/article/highlight/page/3")
+        )
+        self.assertFalse(
+            is_valid("https://dgillen.ics.uci.edu/news/page/2/")
+        )
+        self.assertFalse(
+            is_valid("https://ngs.ics.uci.edu/blog/page/184")
         )
         # arbitrary fake scenario
         self.assertFalse(

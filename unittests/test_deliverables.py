@@ -16,7 +16,7 @@ class TestExtractNextLinks(unittest.TestCase):
         deliverable |= process_page("https://ics.uci.edu/notreal#fake", soup)
 
         self.assertTrue(
-            "https://ics.uci.edu/notreal" in deliverable.unique_urls)
+            "https://ics.uci.edu/notreal" in deliverable.url_token_sizes.keys())
         self.assertTrue("ics.uci.edu" in deliverable.subdomains)
         self.assertEqual(len(deliverable.subdomains), 1)
         self.assertEqual(deliverable.longest_page_url,
@@ -28,20 +28,23 @@ class TestExtractNextLinks(unittest.TestCase):
 
     def test_accumuluate_deliverable(self):
         A = Deliverable("A")
-        A.unique_urls = set(["xxx", "yyy", "xxx/abc", "yyy/abc/?def"])
+        A.url_token_sizes = dict(zip(
+            ["xxx", "yyy", "xxx/abc", "yyy/abc/?def"], [-1]*4))
         A.longest_page_len = 500
         A.longest_page_url = "xxx"
         A.words = Counter(hello=20, world=20)
         A.subdomains = Counter(xxx=2, yyy=2)
         B = Deliverable("B")
-        A.unique_urls = set(["foo", "bar", "foo/baz", "bar/baz/?idk", "xxx"])
+        A.url_token_sizes = dict(zip(
+            ["foo", "bar", "foo/baz", "bar/baz/?idk", "xxx"], [-1]*5))
         A.longest_page_len = 1500
         A.longest_page_url = "foo"
         A.words = Counter(world=5, hold=5, on=5)
         A.subdomains = Counter(foo=2, bar=2, xxx=1)
         final = Deliverable.accumulate([A, B])
 
-        self.assertEqual(final.unique_urls, A.unique_urls | B.unique_urls)
+        self.assertEqual(final.url_token_sizes,
+                         A.url_token_sizes | B.url_token_sizes)
         self.assertEqual(final.longest_page_len, 1500)
         self.assertEqual(final.longest_page_url, "foo")
         self.assertEqual(final.words,
@@ -66,7 +69,7 @@ class TestExtractNextLinks(unittest.TestCase):
         self.assertEqual(deliverable.longest_page_len, 117)
         self.assertEqual(deliverable.longest_page_url,
                          "https://TEST_BAR.uci.edu/longer_page#IGNORE_FRAG")
-        self.assertEqual(deliverable.unique_urls, set(
+        self.assertEqual(set(deliverable.url_token_sizes.keys()), set(
             ["https://TEST_FOO.uci.edu", "https://TEST_BAR.uci.edu/longer_page"]))
         self.assertEqual(set(deliverable.subdomains.keys()), set(
             ["TEST_FOO.uci.edu", "TEST_BAR.uci.edu"]))
@@ -94,7 +97,7 @@ class TestExtractNextLinks(unittest.TestCase):
         self.assertEqual(deliverable.longest_page_len, 117)
         self.assertEqual(deliverable.longest_page_url,
                          "https://TEST_BAR.uci.edu/longer_page#IGNORE_FRAG")
-        self.assertEqual(deliverable.unique_urls, set(
+        self.assertEqual(set(deliverable.url_token_sizes.keys()), set(
             ["https://TEST_FOO.uci.edu", "https://TEST_BAR.uci.edu/longer_page"]))
         self.assertEqual(set(deliverable.subdomains.keys()), set(
             ["TEST_FOO.uci.edu", "TEST_BAR.uci.edu"]))

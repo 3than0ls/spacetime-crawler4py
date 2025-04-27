@@ -43,34 +43,38 @@ def scraper(url, resp: Response, deliverable: Deliverable) -> list[str]:
                 f"Response raw response: {resp.raw_response.content}")
         return links
 
-    # essentially a type check to ensure these all exist
+    # functions both as error handling for 200 status with no raw response, and a type check guarantee
     if resp.raw_response is None or resp.raw_response.url is None or resp.raw_response.content is None:
         log.error(
-            f"Response returned a 200 code, yet had no raw response.")
+            f"Response returned a 200 code, yet had no raw response or missing raw URL.")
         return links
 
-    if resp.raw_response:
-        log.info(
-            f"Processing page fetched for {url}, acquired from {resp.url}")
-        log.info(f"Page contents length: {len(resp.raw_response.content)}")
-        content_length = len(resp.raw_response.content)
+    # if we're somehow redirected that is invalid (typically out of domain), return an empty list
+    if not is_valid(resp.raw_response.url):
+        return links
 
-        if url != resp.url:
-            log.warning(
-                f"Fetched URL was not an exact match with response URL ({url} and {resp.url})")
-        if url not in resp.url:
-            log.warning(
-                f"Fetched URL was not near match with response URL ({url} and {resp.url})")
+    log.info(
+        f"Processing page fetched for {url}, acquired from {resp.url}")
+    # log.info(f"Page contents length: {len(resp.raw_response.content)}")
+    content_length = len(resp.raw_response.content)
 
-        if content_length < 100:
-            log.warning(
-                f"{resp.url} contents contain little information, despite returning 200.")
-            log.warning(f"{resp.url} contents: {resp.raw_response}")
+    if url != resp.url:
+        log.warning(
+            f"Fetched URL was not an exact match with response URL ({url} and {resp.url})")
+    if url not in resp.url:
+        log.warning(
+            f"Fetched URL was not near match with response URL ({url} and {resp.url})")
+
+    if content_length < 100:
+        log.warning(
+            f"{resp.url} contents contain little information, despite returning 200.")
+        log.warning(f"{resp.url} contents: {resp.raw_response}")
 
     # now that we know the raw response is something vaild, process it into a soup and use it
     soup = BeautifulSoup(resp.raw_response.content, "html.parser")
     deliverable |= process_page(resp.raw_response.url, soup)
     links = extract_next_links(url, soup)
+
     return links
 
 
@@ -81,17 +85,14 @@ def extract_next_links(url, soup: BeautifulSoup) -> list[str]:
     URLs with the same URL expect different hashes are considered duplicates.
     """
     all_links = soup.find_all("a", href=True)
-    links = [a_tag['href']
-             for a_tag in all_links if is_valid(a_tag['href'])]
+    hrefs = [a_tag['href'] for a_tag in all_links]
     # log.info(
     #     f"Found {len(links)} valid links (out of {len(all_links)} total links) in the response content")
 
     # design choice: URLs with different fragments but the same everything else are essentially duplicates; so we will cut them out
-    links = list(set(
-        [urldefrag(url)[0] for url in links]
-    ))
-
-    return links
+    unique_links = set([urldefrag(url)[0] for url in hrefs])
+    valid_links = [link for link in unique_links if is_valid(link)]
+    return valid_links
 
 
 def is_valid(url):
@@ -102,8 +103,6 @@ def is_valid(url):
 
     Rules are based on a long series of trial and error to see what links are good and what aren't,
     As well as how to identify potential traps just based on URL (such as calendar traps)
-    TODO: how to deal with commit hash traps at leaf of the path
-    TODO: match infinite /page/X issues
     """
     try:
         parsed = urlparse(url)
@@ -118,7 +117,7 @@ def is_valid(url):
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
-            + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
+            + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|ppsx"
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
@@ -173,9 +172,12 @@ def is_valid(url):
         if any((invalid_fragment in parsed.fragment) for invalid_fragment in INVALID_FRAGMENTS):
             return False
 
-        # avoid page/X issues
+        # avoid /page/X issues
+        processed_path_parts = [part for part in path_parts if part != '']
         # ensure the path /page/X can exist and is being followed
-        if len(path_parts) >= 2 and path_parts[-2] == "page" and re.search(r"\d+", path_parts[-1]):
+        if len(processed_path_parts) >= 2 \
+                and processed_path_parts[-2] == "page" \
+                and re.search(r"\d+", processed_path_parts[-1]):
             return False
 
         return True
