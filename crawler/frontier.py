@@ -63,7 +63,6 @@ class Frontier(object):
             f"total urls discovered.")
 
     def get_tbd_url(self):
-        # print(f"tbd: {self.to_be_downloaded}")
         try:
             # return self.to_be_downloaded.pop()
             # horrifyinly ugly way to do this
@@ -92,8 +91,6 @@ class Frontier(object):
             self.save[urlhash] = (url, False)
             self.save.sync()
             self.to_be_downloaded.append(url)
-        else:
-            print('url not added', url)
 
     def mark_url_complete(self, url):
         urlhash = get_urlhash(url)

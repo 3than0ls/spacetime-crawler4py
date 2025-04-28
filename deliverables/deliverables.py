@@ -107,7 +107,7 @@ class Deliverable:
             f.write(f"Deliverable ID: {self._deliverable_id}\n")
             f.write("\n")
             f.write("--- DELIVERABLE 1: NUMBER OF UNIQUE PAGES ---\n")
-            f.write(f"UNIQUE PAGES: {num_unique_urls}")
+            f.write(f"UNIQUE PAGES: {num_unique_urls}\n")
             f.write("\n")
             f.write("--- DELIVERABLE 2: LONGEST PAGE IN WORDS ---\n")
             f.write(f"PAGE: {longest_page}\n")

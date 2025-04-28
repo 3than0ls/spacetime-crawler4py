@@ -75,8 +75,24 @@ class TestFrontier(unittest.TestCase):
         self.assertEqual(one_domain, one_again_domain)
         self.assertTrue(len(f.to_be_downloaded) == 0)
 
+    def test_single_domain(self):
+        f = Frontier(self.config, True)
+        lq = [f"https://one.com/{i+1}" for i in range(3)][::-1]
+        f.to_be_downloaded = lq
+
+        one = f.get_tbd_url()
+        self.assertEqual(one, "https://one.com/1")
+        self.assertEqual(f.get_tbd_url(), None)
+        time.sleep(0.2)
+        self.assertEqual(f.get_tbd_url(), None)
+        time.sleep(0.5)
+        self.assertEqual(f.get_tbd_url(), "https://one.com/2")
+        time.sleep(0.5)
+        self.assertEqual(f.get_tbd_url(), "https://one.com/3")
+        self.assertEqual(f.get_tbd_url(), None)
+        self.assertEqual(f.get_tbd_url(), None)
+
     def test_simulation(self):
-        pass
         # write a 4 worker test
         # create my own queue
         f = Frontier(self.config, True)
@@ -220,6 +236,12 @@ class TestFrontier(unittest.TestCase):
         ]
 
         self.assertEqual(processed_urls, ordered)
+
+    def test_real(self):
+        pass
+        # 2025-04-28 17:28:50,068 - Worker-0 - INFO - Downloaded https://isg.ics.uci.edu/visitor-info, status <200>, using cache ('styx.ics.uci.edu', 9005).
+        # 2025-04-28 17:28:50,330 - Worker-1 - INFO - Downloaded http://www.ics.uci.edu/about/visit/index.php, status <200>, using cache ('styx.ics.uci.edu', 9005).
+        # 2025-04-28 17:28:50,654 - Worker-0 - INFO - Downloaded https://isg.ics.uci.edu/reunion2024, status <200>, using cache ('styx.ics.uci.edu', 9005).
 
     def tearDown(self):
         self._delete_temp()

@@ -72,6 +72,10 @@ class TestIsValid(unittest.TestCase):
                 "https://wics.ics.uci.edu/spring-2021-week-1-wics-first-general-meeting/?share=facebook")
         )
 
+    def test_avoid_path_segments(self):
+        self.assertFalse(is_valid(
+            "https://www.informatics.uci.edu/files/pdf/InformaticsBrochure-March2018"))
+
     def test_hardcoded_robotstxt(self):
         self.assertFalse(
             is_valid("https://ics.uci.edu/happening/news/page/3")

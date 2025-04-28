@@ -6,7 +6,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import json
 from deliverables import Deliverable, process_page
-from validate import VALID_SCHEMES, VALID_DOMAINS, INVALID_DOMAINS, INVALID_PATHS, INVALID_FRAGMENTS, INVALID_QUERIES
+from validate import VALID_SCHEMES, VALID_DOMAINS, INVALID_DOMAINS, INVALID_PATHS, INVALID_FRAGMENTS, INVALID_QUERIES, INVALID_PATH_SEGMENTS
 
 timestamp = datetime.now().strftime("%m-%d:%H:%M:%S")
 log = get_logger("CUSTOM", f"LOG-{timestamp}")
@@ -152,6 +152,11 @@ def is_valid(url):
                     and any(path.startswith(invalid_path) for invalid_path in invalid_paths):
                 return False
 
+        # avoid paths that include things like "files/pdf" (one specific example)
+        # https://www.informatics.uci.edu/files/pdf/InformaticsBrochure-March2018
+        if any([path_segment in parsed.path for path_segment in INVALID_PATH_SEGMENTS]):
+            return False
+
         # avoid crawler traps (all)
         path_parts = parsed.path.split("/")
         query_parts = parsed.query.split("&")
@@ -183,5 +188,5 @@ def is_valid(url):
         return True
 
     except TypeError:
-        print("TypeError for ", parsed)
+        log.error("TypeError for ", parsed)
         raise

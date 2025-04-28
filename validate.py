@@ -37,6 +37,12 @@ INVALID_PATHS = {
     "ngs.ics.uci.edu": set(["/tag"])
 }
 
+# paths that include these segments should be skipped
+INVALID_PATH_SEGMENTS = set([
+    "files/pdf",
+    "file/pdf"
+])
+
 
 INVALID_QUERIES = set([
     # these queries are associated with actions that do not produce a webpage
