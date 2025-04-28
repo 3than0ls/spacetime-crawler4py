@@ -1,7 +1,7 @@
 import os
 import logging
 from hashlib import sha256
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 
 def get_logger(name, filename=None):
@@ -38,3 +38,12 @@ def normalize(url):
     if url.endswith("/"):
         return url.rstrip("/")
     return url
+
+
+def strip_www(url: str):
+    return str(url).replace('www.', '')
+
+
+# im tired of testing
+assert strip_www("https://www.ics.uci.edu") == "https://ics.uci.edu"
+assert strip_www("www.cs.uci.edu") == "cs.uci.edu"
