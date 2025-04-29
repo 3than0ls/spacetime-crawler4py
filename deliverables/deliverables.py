@@ -48,9 +48,14 @@ class Deliverable:
         self._timestamp = datetime.now().strftime("%m-%d:%H:%M:%S")
 
         # map of URL to content size (in number of tokens)
-        # the keys of this provide UNIQUE_URLS
+        # the keys of this provide UNIQUE_URLS [deprecated]
         # the values provide some insightful debugging data
         self.url_token_sizes = dict()  # url: num of tokens
+
+        # unique pages SEEN versus unique pages DOWNLOADED
+        # only vaild pages are downloaded
+        # this counts unique pages seen
+        self.unique_pages_seen = set()
 
         # for the page with longest length
         self.longest_page_len = 0
@@ -68,7 +73,7 @@ class Deliverable:
 
     def _json_dump(self, fname=None):
         if fname is None:
-            fname = f"deliverables-{self._timestamp}-dump"
+            fname = f"deliverables-{self._timestamp}-dump.json"
 
         fname = os.path.join(_DELIVERABLES_DIRNAME, fname)
         self._create_deliverables_dir()
@@ -93,7 +98,8 @@ class Deliverable:
         self._create_deliverables_dir()
         fname = os.path.join(_DELIVERABLES_DIRNAME, fname)
 
-        num_unique_urls = len(self.url_token_sizes)
+        num_unique_valid_urls = len(self.url_token_sizes)
+        num_urls_seen = len(self.unique_pages_seen)
         longest_page = self.longest_page_url
         longest_page_len = self.longest_page_len
         top_words = sorted(self.words.items(),
@@ -106,7 +112,8 @@ class Deliverable:
             f.write(f"Deliverable ID: {self._deliverable_id}\n")
             f.write("\n")
             f.write("--- DELIVERABLE 1: NUMBER OF UNIQUE PAGES ---\n")
-            f.write(f"UNIQUE PAGES: {num_unique_urls}\n")
+            f.write(f"UNIQUE PAGES (VALID): {num_unique_valid_urls}\n")
+            f.write(f"UNIQUE URLS (SEEN): {num_urls_seen}\n")
             f.write("\n")
             f.write("--- DELIVERABLE 2: LONGEST PAGE IN WORDS ---\n")
             f.write(f"PAGE: {longest_page}\n")
@@ -137,6 +144,7 @@ class Deliverable:
             self.longest_page_url = other.longest_page_url
         self.words += other.words
         self.subdomains += other.subdomains
+        self.unique_pages_seen |= other.unique_pages_seen
         return self
 
     @staticmethod
@@ -167,9 +175,13 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable
         words = tokenize(page_text)
         num_words = sum(words.values())
 
-        # DELIVERABLE: UNIQUE PAGES
+        # DELIVERABLE: UNIQUE PAGES [SEEN]
         unique_url = urldefrag(response_url)[0]
         deliverable.url_token_sizes[unique_url] = num_words
+
+        links = response_soup.find_all('a', href=True)
+        unique_urls_in_page = set(urldefrag(link['href'])[0] for link in links)
+        deliverable.unique_pages_seen |= unique_urls_in_page
 
         # DELIVERABLE: LONGEST PAGE
         # words are tokens that have HTML tags filtered out;

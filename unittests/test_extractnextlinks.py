@@ -17,7 +17,7 @@ class TestExtractNextLinks(unittest.TestCase):
 
         soup = BeautifulSoup(text, 'html.parser')
         hrefs = soup.find_all('a')
-        self.assertEqual(len(hrefs), 6)
+        self.assertEqual(len(hrefs), 7)
 
         text = soup.get_text(separator=' ')
         self.assertNotIn('<a>', text)

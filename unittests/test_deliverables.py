@@ -17,6 +17,7 @@ class TestExtractNextLinks(unittest.TestCase):
 
         self.assertTrue(
             "https://ics.uci.edu/notreal" in deliverable.url_token_sizes.keys())
+        self.assertEqual(len(deliverable.unique_pages_seen), 5)
         self.assertTrue("ics.uci.edu" in deliverable.subdomains)
         self.assertEqual(len(deliverable.subdomains), 1)
         self.assertEqual(deliverable.longest_page_url,
