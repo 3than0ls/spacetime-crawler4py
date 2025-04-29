@@ -15,7 +15,7 @@ from configparser import ConfigParser
 from argparse import ArgumentParser
 from utils.server_registration import get_cache_server
 from utils.config import Config
-from utils import strip_www
+from utils import normalize, get_domain_name
 import threading
 
 
@@ -38,47 +38,54 @@ class TestFrontier(unittest.TestCase):
         f = Frontier(self.config, True)
         # result = Frontier._load_into_domain(to_be_downloaded)
         seeds = set(self.config.seed_urls)
-        self.assertIn("ics.uci.edu", set(f.domains_last_accessed.keys()))
+        self.assertIn("ics.uci.edu", set(f._domains_last_accessed.keys()))
         self.assertLess(
-            f.domains_last_accessed['ics.uci.edu'], time.time())
+            f._domains_last_accessed['ics.uci.edu'], time.time())
 
     def test_extract(self):
         f = Frontier(self.config, True)
-        f.to_be_downloaded.insert(2, "https://stat.uci.edu/bungus")
+        # f._frontier.insert(2, "https://stat.uci.edu/bungus")
+        # f._frontier.insert(2, "https://abc.uci.edu/bungus")
+        f._frontier.append("https://www.stat.uci.edu/bad")
 
         one = f.get_tbd_url()
-        self.assertEqual(one, "https://www.stat.uci.edu")
-        one_domain = strip_www(urlparse(one).netloc)
-
+        self.assertEqual(one, "https://www.stat.uci.edu/bad")
+        one_domain = get_domain_name(urlparse(one).netloc)
+        self.assertEqual(one_domain, "stat.uci.edu")
         self.assertTrue(
-            time.time() - f.domains_last_accessed[one_domain] < 0.1)
-        self.assertTrue(len(f.to_be_downloaded) == 4)
+            time.time() - f._domains_last_accessed[one_domain] < 0.1)
+        self.assertTrue(len(f._frontier) == 4)
 
         two = f.get_tbd_url()
-        two_domain = strip_www(urlparse(two).netloc)
+        two_domain = get_domain_name(urlparse(two).netloc)
         self.assertNotEqual(one_domain, two_domain)
-        self.assertTrue(len(f.to_be_downloaded) == 3)
+        self.assertEqual(two_domain, "informatics.uci.edu")
+        self.assertTrue(len(f._frontier) == 3)
+
+        time.sleep(0.5)
 
         three = f.get_tbd_url()
-        three_domain = strip_www(urlparse(three).netloc)
-        self.assertEqual(three_domain, "cs.uci.edu")
-        self.assertTrue(len(f.to_be_downloaded) == 2)
+        three_domain = get_domain_name(urlparse(three).netloc)
+        self.assertEqual(three, "https://www.stat.uci.edu")
+        self.assertEqual(three_domain, "stat.uci.edu")
+        self.assertTrue(len(f._frontier) == 2)
 
         four = f.get_tbd_url()
-        four_domain = strip_www(urlparse(four).netloc)
-        self.assertEqual(four_domain, "ics.uci.edu")
-        self.assertTrue(len(f.to_be_downloaded) == 1)
+        four_domain = get_domain_name(urlparse(four).netloc)
+        self.assertEqual(four_domain, "cs.uci.edu")
+        self.assertTrue(len(f._frontier) == 1)
 
-        time.sleep(1)
-        one_again = f.get_tbd_url()
-        one_again_domain = strip_www(urlparse(one_again).netloc)
-        self.assertEqual(one_domain, one_again_domain)
-        self.assertTrue(len(f.to_be_downloaded) == 0)
+        four = f.get_tbd_url()
+        four_domain = get_domain_name(urlparse(four).netloc)
+        self.assertEqual(four, "https://www.ics.uci.edu")
+        self.assertTrue(len(f._frontier) == 0)
+
+        self.assertIsNone(f.get_tbd_url())
 
     def test_single_domain(self):
         f = Frontier(self.config, True)
         lq = [f"https://one.com/{i+1}" for i in range(3)][::-1]
-        f.to_be_downloaded = lq
+        f._frontier = lq
 
         one = f.get_tbd_url()
         self.assertEqual(one, "https://one.com/1")
@@ -91,6 +98,18 @@ class TestFrontier(unittest.TestCase):
         self.assertEqual(f.get_tbd_url(), "https://one.com/3")
         self.assertEqual(f.get_tbd_url(), None)
         self.assertEqual(f.get_tbd_url(), None)
+
+    def test_frontier_seen(self):
+        f = Frontier(self.config, True)
+        lq = ["https://www.stat.uci.edu"][::-1]
+        f._frontier = lq
+
+        url = f.get_tbd_url()
+        domain = get_domain_name(url)
+        self.assertEqual(domain, "stat.uci.edu")
+        self.assertFalse(f._can_access_domain(domain))
+        self.assertEqual(f.get_tbd_url(), None)
+        self.assertIn("stat.uci.edu", f._domains_last_accessed.keys())
 
     def test_simulation(self):
         # write a 4 worker test
@@ -108,7 +127,7 @@ class TestFrontier(unittest.TestCase):
             "https://four.com/b",  # 4
         ]
         # reverse it so sequential ordering makes sense
-        f.to_be_downloaded = lq[::-1]
+        f._frontier = lq[::-1]
 
         download_order = [
             [lq[0], lq[1], lq[2]],
@@ -143,7 +162,7 @@ class TestFrontier(unittest.TestCase):
             "https://four.com/b",  # 4
         ]
         # reverse it so sequential ordering makes sense
-        f.to_be_downloaded = lq[::-1]
+        f._frontier = lq[::-1]
         processed_urls = []
         num_threads = 4
         threads = [None] * num_threads
@@ -197,7 +216,7 @@ class TestFrontier(unittest.TestCase):
             "https://four.com/b",  # 8
         ]
         # reverse it so sequential ordering makes sense
-        f.to_be_downloaded = lq[::-1]
+        f._frontier = lq[::-1]
         processed_urls = []
         num_threads = 2
         threads = [None] * num_threads
@@ -236,12 +255,6 @@ class TestFrontier(unittest.TestCase):
         ]
 
         self.assertEqual(processed_urls, ordered)
-
-    def test_real(self):
-        pass
-        # 2025-04-28 17:28:50,068 - Worker-0 - INFO - Downloaded https://isg.ics.uci.edu/visitor-info, status <200>, using cache ('styx.ics.uci.edu', 9005).
-        # 2025-04-28 17:28:50,330 - Worker-1 - INFO - Downloaded http://www.ics.uci.edu/about/visit/index.php, status <200>, using cache ('styx.ics.uci.edu', 9005).
-        # 2025-04-28 17:28:50,654 - Worker-0 - INFO - Downloaded https://isg.ics.uci.edu/reunion2024, status <200>, using cache ('styx.ics.uci.edu', 9005).
 
     def tearDown(self):
         self._delete_temp()

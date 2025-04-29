@@ -30,8 +30,7 @@ import os
 import json
 
 
-timestamp = datetime.now().strftime("%m-%d:%H:%M:%S")
-log = get_logger("DELIVERABLE", f"DELIVERABLE-{timestamp}")
+log = get_logger("DELIVERABLE", f"CRAWLER")
 
 
 _DELIVERABLES_DIRNAME = "Deliverables"
@@ -163,8 +162,7 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable
     """
     deliverable = Deliverable(response_url)
     try:
-        log.info(f"Processing page {response_url}")
-
+        # log.info(f"Processing page {response_url}")
         page_text = response_soup.get_text(separator=' ', strip=True)
         words = tokenize(page_text)
         num_words = sum(words.values())

@@ -37,13 +37,21 @@ def get_urlhash(url):
 def normalize(url):
     if url.endswith("/"):
         return url.rstrip("/")
+    # if "www." in url:
+    #     url = url.replace("www.", "", 1)
     return url
 
 
-def strip_www(url: str):
-    return str(url).replace('www.', '')
+def get_domain_name(url: str):
+    parsed = urlparse(url)
+    if not parsed.netloc:
+        return url.replace("www.", "", 1)
+    else:
+        return parsed.netloc.replace("www.", "", 1)
 
 
 # im tired of testing
-assert strip_www("https://www.ics.uci.edu") == "https://ics.uci.edu"
-assert strip_www("www.cs.uci.edu") == "cs.uci.edu"
+assert get_domain_name(
+    "https://www.ics.uci.edu") == "ics.uci.edu", get_domain_name(
+    "https://www.ics.uci.edu")
+assert get_domain_name("www.cs.uci.edu") == "cs.uci.edu"

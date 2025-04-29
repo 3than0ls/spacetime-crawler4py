@@ -28,32 +28,28 @@ class Worker(Thread):
 
     def run(self):
         while True:
-            try:
-                tbd_url = self.frontier.get_tbd_url()
-                if not tbd_url:
-                    if self.frontier.empty():
-                        self.logger.info(
-                            "Frontier is empty. Stopping Crawler.")
-                        break
-                    else:  # frontier is not empty, but no URLs are allowed to be downloaded
-                        # for some reason this is never being logged? weird
-                        self.logger.info(
-                            "Respecting politeness delay since there are no free links to download. Idling Crawler.")
-                        time.sleep(self.config.time_delay)
-                        continue
-            except RuntimeError as E:
-                self.logger.warning(
-                    f"Worker {self.worker_id} encountered a race condition. Waiting...")
-                time.sleep(self.config.time_delay + random.random())
-                continue
+            tbd_url = self.frontier.get_tbd_url()
+            if tbd_url is None:
+                if self.frontier.empty():
+                    self.logger.info(
+                        "Frontier is empty. Stopping Crawler.")
+                    break
+                else:
+                    self.logger.info(
+                        "Respecting politeness delay since there are no free links to download. Idling Crawler.")
+                    time.sleep(self.config.time_delay)
+            else:
+                resp = download(tbd_url, self.config, self.logger)
+                self.logger.info(
+                    f"Downloaded {tbd_url}, status <{resp.status}>, "
+                    f"using cache {self.config.cache_server}.")
 
-            resp = download(tbd_url, self.config, self.logger)
-            self.logger.info(
-                f"Downloaded {tbd_url}, status <{resp.status}>, "
-                f"using cache {self.config.cache_server}.")
-            scraped_urls = scraper.scraper(tbd_url, resp, self.deliverable)
-            for scraped_url in scraped_urls:
-                self.frontier.add_url(scraped_url)
-            self.frontier.mark_url_complete(tbd_url)
-            time.sleep(self.config.time_delay)
-        self.logger.critical(f"Worker {self.worker_id} shutting down.")
+                scraped_urls = scraper.scraper(tbd_url, resp, self.deliverable)
+                for scraped_url in scraped_urls:
+                    self.frontier.add_url(scraped_url)
+
+                self.frontier.mark_url_complete(tbd_url)
+
+                time.sleep(self.config.time_delay)
+
+        self.logger.info(f"Worker {self.worker_id} shutting down.")

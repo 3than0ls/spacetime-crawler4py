@@ -8,8 +8,7 @@ import json
 from deliverables import Deliverable, process_page
 from validate import VALID_SCHEMES, VALID_DOMAINS, INVALID_DOMAINS, INVALID_PATHS, INVALID_FRAGMENTS, INVALID_QUERIES, INVALID_PATH_SEGMENTS
 
-timestamp = datetime.now().strftime("%m-%d:%H:%M:%S")
-log = get_logger("CUSTOM", f"LOG-{timestamp}")
+log = get_logger("SCRAPER", f"CRAWLER")
 
 # https://canvas.eee.uci.edu/courses/72511/assignments/1584020
 
@@ -39,8 +38,9 @@ def scraper(url, resp: Response, deliverable: Deliverable) -> list[str]:
             f"Response error status: {resp.status} - from fetched for {url}, acquired from {resp.url}")
         log.error(f"Response error data: {resp.status}")
         if resp.raw_response is not None:
-            log.error(
-                f"Response raw response: {resp.raw_response.content}")
+            # log.error(
+            #     f"Response raw response: {resp.raw_response.content}")
+            pass
         return links
 
     # functions both as error handling for 200 status with no raw response, and a type check guarantee
@@ -53,8 +53,8 @@ def scraper(url, resp: Response, deliverable: Deliverable) -> list[str]:
     if not is_valid(resp.raw_response.url):
         return links
 
-    log.info(
-        f"Processing page fetched for {url}, acquired from {resp.url}")
+    # log.info(
+    #     f"Processing page fetched for {url}, acquired from {resp.url}")
     # log.info(f"Page contents length: {len(resp.raw_response.content)}")
     content_length = len(resp.raw_response.content)
 
@@ -68,7 +68,7 @@ def scraper(url, resp: Response, deliverable: Deliverable) -> list[str]:
     if content_length < 100:
         log.warning(
             f"{resp.url} contents contain little information, despite returning 200.")
-        log.warning(f"{resp.url} contents: {resp.raw_response}")
+        # log.warning(f"{resp.url} contents: {resp.raw_response}")
 
     # now that we know the raw response is something vaild, process it into a soup and use it
     soup = BeautifulSoup(resp.raw_response.content, "html.parser")
