@@ -147,6 +147,14 @@ class TestIsValid(unittest.TestCase):
             is_valid("https://ngs.ics.uci.edu/becoming-impatient/#comment-3103")
         )
 
+    def test_swiki_specific(self):
+        self.assertTrue(
+            is_valid("https://swiki.ics.uci.edu/doku.php"))
+        self.assertTrue(
+            is_valid("https://swiki.ics.uci.edu/doku.php/start?do=revisions"))
+        self.assertTrue(
+            is_valid("https://swiki.ics.uci.edu/doku.php/start?rev=1626126851"))
+
     def test_avoid_page_trap(self):
         self.assertFalse(
             is_valid("https://ics.uci.edu/category/research/page/10")

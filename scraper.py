@@ -1,5 +1,5 @@
 import re
-from urllib.parse import urlparse, urldefrag
+from urllib.parse import urlparse, urldefrag, urljoin
 from utils.response import Response
 from utils import get_logger
 from datetime import datetime
@@ -84,12 +84,10 @@ def extract_next_links(url, soup: BeautifulSoup) -> list[str]:
     URLs with the same URL expect different hashes are considered duplicates.
     """
     all_links = soup.find_all("a", href=True)
-    hrefs = [a_tag['href'] for a_tag in all_links]
+    scraped_links = [urljoin(url, a_tag['href']) for a_tag in all_links]
     # log.info(
     #     f"Found {len(links)} valid links (out of {len(all_links)} total links) in the response content")
-
-    # design choice: URLs with different fragments but the same everything else are essentially duplicates; so we will cut them out
-    unique_links = set([urldefrag(url)[0] for url in hrefs])
+    unique_links = set([urldefrag(url)[0] for url in scraped_links])
     valid_links = [link for link in unique_links if is_valid(link)]
     return valid_links
 

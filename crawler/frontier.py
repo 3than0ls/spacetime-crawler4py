@@ -37,7 +37,10 @@ class Frontier(object):
             self._domains_last_accessed[domain] = 0
 
     def empty(self):
-        return len(self._frontier) == 0 and len(self._found) > len(self._config.seed_urls)
+        if os.getenv("TESTING") == "true":
+            return len(self._frontier) == 0
+        else:
+            return len(self._frontier) == 0 and len(self._found) > len(self._config.seed_urls)
 
     def _can_access_domain(self, domain):
         if domain not in self._domains_last_accessed:

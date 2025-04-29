@@ -15,7 +15,7 @@ class TestTokenization(unittest.TestCase):
         self.assertEqual(words['baz'], 25)
 
     def test_tokenize_file_foo(self):
-        with open("./unittests/foo.html", 'r') as f:
+        with open("./unittests/test_foo.html", 'r') as f:
             text = f.read()
 
         soup = BeautifulSoup(text, 'html.parser')
@@ -26,7 +26,7 @@ class TestTokenization(unittest.TestCase):
         self.assertEqual(words['baz'], 1)
 
     def test_tokenize_file_bar(self):
-        with open("./unittests/bar.html", 'r') as f:
+        with open("./unittests/test_bar.html", 'r') as f:
             text = f.read()
 
         soup = BeautifulSoup(text, 'html.parser')

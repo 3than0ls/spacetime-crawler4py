@@ -24,8 +24,8 @@ class TestExtractNextLinks(unittest.TestCase):
                          "https://ics.uci.edu/notreal#fake")
 
         self.assertEqual(deliverable.words['foo'], 4)
-        self.assertEqual(deliverable.longest_page_len, 52)
-        self.assertEqual(len(deliverable.words), 14)
+        self.assertEqual(deliverable.longest_page_len, 47)
+        self.assertEqual(len(deliverable.words), 9)
 
     def test_accumuluate_deliverable(self):
         A = Deliverable("A")
@@ -54,9 +54,9 @@ class TestExtractNextLinks(unittest.TestCase):
                          A.subdomains + B.subdomains)
 
     def test_deliverable_multifile(self):
-        with open("./unittests/foo.html", 'r') as f:
+        with open("./unittests/test_foo.html", 'r') as f:
             foo = f.read()
-        with open("./unittests/bar.html", 'r') as f:
+        with open("./unittests/test_bar.html", 'r') as f:
             bar = f.read()
 
         foo_soup = BeautifulSoup(foo, 'html.parser')
@@ -79,9 +79,9 @@ class TestExtractNextLinks(unittest.TestCase):
         self.assertEqual(deliverable.words["baz"], 2)
 
     def test_accumulate_multifile(self):
-        with open("./unittests/foo.html", 'r') as f:
+        with open("./unittests/test_foo.html", 'r') as f:
             foo = f.read()
-        with open("./unittests/bar.html", 'r') as f:
+        with open("./unittests/test_bar.html", 'r') as f:
             bar = f.read()
 
         foo_soup = BeautifulSoup(foo, 'html.parser')

@@ -4,12 +4,6 @@ from scraper import extract_next_links
 from utils.response import Response
 
 
-class DummyRawResponse:
-    def __init__(self, url, text):
-        self.url = url
-        self.content = text
-
-
 class TestExtractNextLinks(unittest.TestCase):
     def test_soup(self):
         with open("./unittests/test.html", 'r') as f:
@@ -26,16 +20,21 @@ class TestExtractNextLinks(unittest.TestCase):
         with open("./unittests/test.html", 'r') as f:
             text = f.read()
 
-        resp = Response({
-            "url": "test.html",
-            "status": 200,
-        })
-        resp.raw_response = DummyRawResponse("test.html", text)
         soup = BeautifulSoup(text, "html.parser")
         out = extract_next_links("test.html", soup)
 
         self.assertEqual(len(out), 4)
         self.assertNotIn("https://cnn.com", out)
+
+    def test_extract_absolute_relative_links(self):
+        with open("./unittests/test2.html", 'r') as f:
+            text = f.read()
+
+        soup = BeautifulSoup(text, "html.parser")
+        out = extract_next_links("https://ics.uci.edu", soup)
+        self.assertIn("https://ics.uci.edu", out)
+        self.assertIn("https://ics.uci.edu/foo", out)
+        self.assertNotIn("/foo", out)
 
 
 if __name__ == '__main__':

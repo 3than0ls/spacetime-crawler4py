@@ -20,7 +20,7 @@ INVALID_DOMAINS = set([
     "intranet.ics.uci.edu"
 ])
 
-# handling invalid paths is contingent on the authorities' robots.txt
+# handling invalid paths is typically contingent on the authorities' robots.txt
 # thus must be handled differently; there is no "one set fits all"
 # these data and information was noticed to return a 608 during crawling, and found in robots.txt to be disallowed
 INVALID_PATHS = {
@@ -59,14 +59,14 @@ INVALID_QUERIES = set([
     "outlook-ical=",
     # redirect to is never a good query
     "redirect_to="
+    # https://swiki.ics.uci.edu/doku.php/start?rev=X makes the rev query a crawler trap
+    "rev="
 ])
 
 # these fragments are associated with links that produce the exact same page, but pointing to a different section
 # they are the first line of defense against the fragment issue; that is
 # links with different fragments producing identical pages (because the domain and path are same)
-# UPDATE: design choice was made to ignore fragment when considering URLs
-# thus the same URL but with different fragments is treated as the same URL
-# rendering this as a minor optimization in the is_valid function, rather than anything useful
+# UPDATE: found out that you should just defragment all URLs, this is deprecated
 INVALID_FRAGMENTS = set([
     "comment-",
     "respond"

@@ -204,7 +204,6 @@ class TestFrontier(unittest.TestCase):
         self.assertEqual(processed_urls, ordered)
 
     def test_two_threads(self):
-        return
         f = Frontier(self.config, True)
         lq = [
             "https://one.com/a",  # 1
@@ -259,7 +258,6 @@ class TestFrontier(unittest.TestCase):
         self.assertEqual(processed_urls, ordered)
 
     def test_frontier_no_race_conditions(self):
-        return
         f = Frontier(self.config, True)
         lq = [
             "https://one.com",
