@@ -1,12 +1,15 @@
 from bs4 import BeautifulSoup
 from collections import Counter
+from nltk.corpus import words
 
-# ADAPTED FROM ASSIGNMENT 1
 
 with open("./deliverables/stopwords.txt", "r") as f:
-    _STOPWORDS = f.read().split()
+    _STOPWORDS = set(f.read().split())
 assert len(
     _STOPWORDS) > 0, "Stopwords not found or appear to not be processed correctly."
+
+
+_WORDS = set(words.words())
 
 
 def extract_text(soup: BeautifulSoup) -> str:
@@ -16,9 +19,10 @@ def extract_text(soup: BeautifulSoup) -> str:
     text = soup.get_text(separator=" ", strip=True)
 
 
-def tokenize(text: str) -> Counter:
+def _tokenize(text: str) -> Counter:
     """
-    Returns a Counter object representing the count of all words/tokens.
+    ADAPTED FROM ASSIGNMENT 1
+    Returns a Counter object representing the count of all tokens.
     Typically this text is extracted from a BeautifulSoup via get_text().
     """
     tokens = Counter()
@@ -31,15 +35,26 @@ def tokenize(text: str) -> Counter:
         if char.isalnum():
             buffer += char.lower()
         else:
-            if buffer and buffer not in _STOPWORDS:
-                # if the token is only one letter/character, don't count it
-                if len(buffer) > 1:
-                    tokens[buffer] += 1
+            if buffer:
+                tokens[buffer] += 1
                 buffer = ""
         cursor += 1
 
     # append anything leftover in the buffer
-    if buffer and buffer not in _STOPWORDS:
+    if buffer:
         tokens[buffer] += 1
 
     return tokens
+
+
+def get_words(text: str) -> Counter:
+    """
+    Returns a Counter object representing the count of all words.
+    Typically this text is extracted from a BeautifulSoup via get_text().
+    """
+    tokens = _tokenize(text)
+    words = Counter({
+        token: count for token, count in tokens.items()
+        if token in _WORDS and token not in _STOPWORDS and len(token) > 1
+    })
+    return words

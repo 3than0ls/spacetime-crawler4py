@@ -24,8 +24,8 @@ class TestExtractNextLinks(unittest.TestCase):
                          "https://ics.uci.edu/notreal#fake")
 
         self.assertEqual(deliverable.words['foo'], 4)
-        self.assertEqual(deliverable.longest_page_len, 47)
-        self.assertEqual(len(deliverable.words), 9)
+        self.assertEqual(deliverable.longest_page_len, 45)
+        self.assertEqual(len(deliverable.words), 8)
 
     def test_accumuluate_deliverable(self):
         A = Deliverable("A")
@@ -67,7 +67,7 @@ class TestExtractNextLinks(unittest.TestCase):
         deliverable |= process_page(
             "https://TEST_BAR.uci.edu/longer_page#IGNORE_FRAG", bar_soup)
 
-        self.assertEqual(deliverable.longest_page_len, 117)
+        self.assertEqual(deliverable.longest_page_len, 116)
         self.assertEqual(deliverable.longest_page_url,
                          "https://TEST_BAR.uci.edu/longer_page#IGNORE_FRAG")
         self.assertEqual(set(deliverable.url_token_sizes.keys()), set(
@@ -76,7 +76,7 @@ class TestExtractNextLinks(unittest.TestCase):
             ["TEST_FOO.uci.edu", "TEST_BAR.uci.edu"]))
         self.assertEqual(deliverable.words["foo"], 115)
         self.assertEqual(deliverable.words["bar"], 116)
-        self.assertEqual(deliverable.words["baz"], 2)
+        self.assertEqual(deliverable.words["baz"], 0)  # baz not a word
 
     def test_accumulate_multifile(self):
         with open("./unittests/test_foo.html", 'r') as f:
@@ -95,7 +95,7 @@ class TestExtractNextLinks(unittest.TestCase):
 
         deliverable = Deliverable.accumulate([foo_deliv, bar_deliv])
 
-        self.assertEqual(deliverable.longest_page_len, 117)
+        self.assertEqual(deliverable.longest_page_len, 116)
         self.assertEqual(deliverable.longest_page_url,
                          "https://TEST_BAR.uci.edu/longer_page#IGNORE_FRAG")
         self.assertEqual(set(deliverable.url_token_sizes.keys()), set(
@@ -104,9 +104,7 @@ class TestExtractNextLinks(unittest.TestCase):
             ["TEST_FOO.uci.edu", "TEST_BAR.uci.edu"]))
         self.assertEqual(deliverable.words["foo"], 115)
         self.assertEqual(deliverable.words["bar"], 116)
-        self.assertEqual(deliverable.words["baz"], 2)
-
-        # deliverable.output()
+        self.assertEqual(deliverable.words["baz"], 0)  # baz not a word
 
 
 if __name__ == '__main__':

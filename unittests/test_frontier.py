@@ -5,7 +5,6 @@ Test my changes to the frontier.
 
 import unittest
 from bs4 import BeautifulSoup
-from deliverables import tokenize
 from utils.response import Response
 from crawler import Frontier
 from urllib.parse import urlparse

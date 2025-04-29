@@ -25,7 +25,7 @@ from bs4 import BeautifulSoup
 from collections import Counter
 from utils import get_logger, get_domain_name
 from urllib.parse import urlparse, urldefrag
-from deliverables.tokenization import tokenize
+from deliverables.tokenization import get_words
 import os
 import json
 
@@ -181,7 +181,7 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable
     try:
         # log.info(f"Processing page {response_url}")
         page_text = response_soup.get_text(separator=' ', strip=True)
-        words = tokenize(page_text)
+        words = get_words(page_text)
         num_words = sum(words.values())
 
         # DELIVERABLE: UNIQUE PAGES [SEEN]

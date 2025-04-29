@@ -92,6 +92,25 @@ def extract_next_links(url, soup: BeautifulSoup) -> list[str]:
     return valid_links
 
 
+FILE_EXT_PATTERN = re.compile(
+    r".*\.(css|js|bmp|gif|jpe?g|ico"
+    + r"|png|tiff?|mid|mp2|mp3|mp4"
+    + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
+    + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|ppsx|odc"
+    + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
+    + r"|epub|dll|cnf|tgz|sha1"
+    + r"|thmx|mso|arff|rtf|jar|csv"
+    + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$")
+
+CALENDAR_TRAP_PATTERN = re.compile(
+    r"(?:\d{2}|\d{4})\D+\d{1,2}\D+\d{1,2}|"
+    + r"\d{1,2}\D+\d{1,2}\D+(?:\d{2}|\d{4})|"
+    + r"(?:\d{2}|\d{4})\D+\d{1,2}|"
+    + r"\d{1,2}\D+(?:\d{2}|\d{4})")
+
+ANY_NUMBER_PATTERN = re.compile(r"\d+")
+
+
 def is_valid(url):
     """
     Decide whether to crawl this url or not.
@@ -110,16 +129,7 @@ def is_valid(url):
         if not parsed.scheme in VALID_SCHEMES:
             return False
 
-        if re.match(
-            r".*\.(css|js|bmp|gif|jpe?g|ico"
-            + r"|png|tiff?|mid|mp2|mp3|mp4"
-            + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
-            + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|ppsx"
-            + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
-            + r"|epub|dll|cnf|tgz|sha1"
-            + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", path
-        ):
+        if FILE_EXT_PATTERN.match(path):
             return False
 
         # caused frequently by sli.ics.uci.edu; typically has too many redirections
@@ -161,11 +171,7 @@ def is_valid(url):
         # avoid calendar traps by avoiding paths that look like they contain a calendar
         # anything that looks like a calendar is probably evil
         if any(
-            re.search(
-                r"(?:\d{2}|\d{4})\D+\d{1,2}\D+\d{1,2}|"
-                + r"\d{1,2}\D+\d{1,2}\D+(?:\d{2}|\d{4})|"
-                + r"(?:\d{2}|\d{4})\D+\d{1,2}|"
-                + r"\d{1,2}\D+(?:\d{2}|\d{4})", path_part)
+            CALENDAR_TRAP_PATTERN.search(path_part)
             for path_part in [*path_parts, *query_parts, parsed.path]
         ):
             return False
@@ -179,7 +185,7 @@ def is_valid(url):
         # ensure the path /page/X can exist and is being followed
         if len(processed_path_parts) >= 2 \
                 and processed_path_parts[-2] == "page" \
-                and re.search(r"\d+", processed_path_parts[-1]):
+                and ANY_NUMBER_PATTERN.search(processed_path_parts[-1]):
             return False
 
         return True

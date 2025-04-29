@@ -23,6 +23,9 @@ class TestIsValid(unittest.TestCase):
         self.assertFalse(is_valid(
             "https://ics.uci.edu/~shantas/tutorials/20-icde-crypto_encryption_secret-sharing_sgx_tutorial.ppsx"
         ))
+        self.assertFalse(is_valid(
+            "https://ics.uci.edu/~wjohnson/BIDA/Ch8/Ch8WinBUGScode.odc"
+        ))
 
     def test_valid_domains(self):
         self.assertTrue(is_valid("https://ics.uci.edu/"))
