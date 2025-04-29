@@ -32,7 +32,9 @@ def tokenize(text: str) -> Counter:
             buffer += char.lower()
         else:
             if buffer and buffer not in _STOPWORDS:
-                tokens[buffer] += 1
+                # if the token is only one letter/character, don't count it
+                if len(buffer) > 1:
+                    tokens[buffer] += 1
                 buffer = ""
         cursor += 1
 

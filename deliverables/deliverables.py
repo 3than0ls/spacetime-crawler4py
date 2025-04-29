@@ -206,7 +206,7 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable
         # all valid links end with .uci.edu anyway, but
         assert "uci.edu" in parsed.netloc, f"Somehow processing {response_url}, despite it not being a valid URL."
         deliverable.subdomains[parsed.netloc] += 1
-        deliverable.subdomains[get_domain_name(parsed.netloc)] += 1
+        deliverable.stripped_subdomains[get_domain_name(parsed.netloc)] += 1
 
     except TypeError as e:
         log.error(e)
