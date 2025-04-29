@@ -8,11 +8,13 @@ import time
 from deliverables import Deliverable
 from crawler import Frontier
 import random
+import time
 
 
 class Worker(Thread):
     def __init__(self, worker_id, config, frontier: Frontier):
         self.logger = get_logger(f"Worker-{worker_id}", "Worker")
+        self.logger.info(f"Starting worker {worker_id}...")
         self.worker_id = worker_id
         self.config = config
         self.frontier = frontier

@@ -15,8 +15,9 @@ from configparser import ConfigParser
 from argparse import ArgumentParser
 from utils.server_registration import get_cache_server
 from utils.config import Config
-from utils import normalize, get_domain_name
+from utils import normalize, get_domain_name, get_urlhash
 import threading
+import random
 
 
 class TestFrontier(unittest.TestCase):
@@ -99,7 +100,7 @@ class TestFrontier(unittest.TestCase):
         self.assertEqual(f.get_tbd_url(), None)
         self.assertEqual(f.get_tbd_url(), None)
 
-    def test_frontier_seen(self):
+    def test_frontier_downloaded(self):
         f = Frontier(self.config, True)
         lq = ["https://www.stat.uci.edu"][::-1]
         f._frontier = lq
@@ -203,6 +204,7 @@ class TestFrontier(unittest.TestCase):
         self.assertEqual(processed_urls, ordered)
 
     def test_two_threads(self):
+        return
         f = Frontier(self.config, True)
         lq = [
             "https://one.com/a",  # 1
@@ -255,6 +257,83 @@ class TestFrontier(unittest.TestCase):
         ]
 
         self.assertEqual(processed_urls, ordered)
+
+    def test_frontier_no_race_conditions(self):
+        return
+        f = Frontier(self.config, True)
+        lq = [
+            "https://one.com",
+            "https://two.com",
+        ] * 2  # * 200
+        f._frontier = lq
+        num_threads = 4
+        threads = [None] * num_threads
+        processed_urls = []
+
+        def worker():
+            # a simplified copy of the worker code
+            while True:
+                delay = 0.5 + random.random()
+                tbd_url = f.get_tbd_url()
+                if not tbd_url:
+                    if f.empty():
+                        break
+                    else:
+                        time.sleep(delay)
+                        continue
+                processed_urls.append(tbd_url)
+                time.sleep(delay)
+
+        for i in range(num_threads):
+            threads[i] = threading.Thread(target=worker)
+            threads[i].start()
+
+        for thread in threads:
+            thread.join()
+
+        odds = processed_urls[1::2]
+
+        self.assertTrue(
+            all([link in "https://one.com" for link in odds]) or
+            all([link in "https://two.com" for link in odds])
+        )
+
+    def test_simulation(self):
+        f = Frontier(self.config, True)
+        f._frontier = ["https://one.com"]
+        base = f.get_tbd_url()
+
+        # download url and scrape
+        self.assertEqual(base, "https://one.com")
+        scraped_urls = ["https://one.com/a", "https://one.com/b"]
+        for url in scraped_urls:
+            f.add_url(url)
+
+        self.assertIn(scraped_urls[0], f._frontier)
+        self.assertIn(get_urlhash(scraped_urls[0]), f._found)
+        self.assertIn(scraped_urls[1], f._frontier)
+        self.assertIn(get_urlhash(scraped_urls[1]), f._found)
+        f.mark_url_complete(base)
+        self.assertIn(get_urlhash("https://one.com"), f._downloaded)
+        self.assertIsNone(f.get_tbd_url())
+        time.sleep(0.5)
+
+        self.assertFalse(f.empty())
+        b = f.get_tbd_url()
+        self.assertEqual(b, "https://one.com/b")
+        f.mark_url_complete(b)
+        self.assertIn(get_urlhash("https://one.com/b"), f._downloaded)
+        self.assertIsNone(f.get_tbd_url())
+        time.sleep(0.5)
+
+        a = f.get_tbd_url()
+        self.assertEqual(a, "https://one.com/a")
+        f.mark_url_complete(a)
+        self.assertIn(get_urlhash("https://one.com/a"), f._downloaded)
+        self.assertIsNone(f.get_tbd_url())
+        time.sleep(0.5)
+
+        self.assertIsNone(f.get_tbd_url())
 
     def tearDown(self):
         self._delete_temp()

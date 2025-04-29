@@ -35,8 +35,7 @@ def scraper(url, resp: Response, deliverable: Deliverable) -> list[str]:
 
     if not resp.status == 200:
         log.error(
-            f"Response error status: {resp.status} - from fetched for {url}, acquired from {resp.url}")
-        log.error(f"Response error data: {resp.status}")
+            f"Response error status <{resp.status}> - from fetched for {url}, acquired from {resp.url}")
         if resp.raw_response is not None:
             # log.error(
             #     f"Response raw response: {resp.raw_response.content}")

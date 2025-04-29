@@ -20,11 +20,13 @@ class Frontier(object):
         self._config = config
         self._frontier = list()
 
-        # a set of URLs (hashed) that have been seen
-        self._seen = set()
+        # set of URLs (hashed) that have been seen
+        self._found = set()
+        # set of URLs (hashed) that have bene downloaded
+        self._downloaded = set()
 
         # skip the frontier
-        self.logger.info("Starting from seed: {self.config.seed_urls}")
+        self.logger.info(f"Starting from seed: {self._config.seed_urls}")
         for url in self._config.seed_urls:
             self.add_url(url)
 
@@ -35,7 +37,7 @@ class Frontier(object):
             self._domains_last_accessed[domain] = 0
 
     def empty(self):
-        return len(self._frontier) == 0
+        return len(self._frontier) == 0 and len(self._found) > len(self._config.seed_urls)
 
     def _can_access_domain(self, domain):
         if domain not in self._domains_last_accessed:
@@ -51,7 +53,7 @@ class Frontier(object):
             self._domains_last_accessed[domain] = time.time()
 
     def get_tbd_url(self):
-        """Get the next URL from the frontier"""
+        """Get the next URL from the frontier in a potentially non-thread-safe manner."""
         if self.empty():
             return None
 
@@ -62,8 +64,7 @@ class Frontier(object):
 
             if self._can_access_domain(domain):
                 self._set_domain_seen(domain)
-                self._frontier.pop(index)
-                assert domain in self._domains_last_accessed
+                del self._frontier[index]
                 return current_url
 
         return None
@@ -74,7 +75,11 @@ class Frontier(object):
         """
         url = normalize(url)
         urlhash = get_urlhash(url)
-        if urlhash not in self._seen:
+        if urlhash not in self._found:
+            # we don't want to add the same URL twice to the frontier, so add it to found URLs
+            # this may occur when a URL is in a frontier, then the same URL is found on the page currently being scraped
+            # don't want to stop if that happens; just dont add it
+            self._found.add(urlhash)
             self._frontier.append(url)
 
     def mark_url_complete(self, url):
@@ -82,9 +87,14 @@ class Frontier(object):
         Since the removal of the frontier save, this is no longer used.
         """
         urlhash = get_urlhash(url)
-        if urlhash not in self._seen:
+        if urlhash in self._downloaded:
             # This should not happen.
-            self.logger.error(
-                f"Completed url {url}, but have not seen it before.")
+            message = f"Marking url {url} as complete, but have already downloaded it before."
+            self.logger.error(message)
+            assert False, message
 
-        self._seen.append(urlhash)
+        self._downloaded.add(urlhash)
+
+# link added to frontier
+# seen again in another page
+# link added to frontier

@@ -23,7 +23,7 @@ As a concrete deliverable of this project, besides the code itself, you must sub
 from datetime import datetime
 from bs4 import BeautifulSoup
 from collections import Counter
-from utils import get_logger
+from utils import get_logger, get_domain_name
 from urllib.parse import urlparse, urldefrag
 from deliverables.tokenization import tokenize
 import os
@@ -66,6 +66,8 @@ class Deliverable:
 
         # for the count of subdomains
         self.subdomains = Counter()
+        # same as subdomains, but with www. stripped
+        self.stripped_subdomains = Counter()
 
     def _create_deliverables_dir(self):
         if not os.path.exists(_DELIVERABLES_DIRNAME):
@@ -104,8 +106,10 @@ class Deliverable:
         longest_page_len = self.longest_page_len
         top_words = sorted(self.words.items(),
                            key=lambda x: (-x[1], x[0]))[:50]
-        subdomains_count = sorted(
+        sorted_subdomains = sorted(
             self.subdomains.items(), key=lambda x: (x[0], x[1]))
+        subdomains_count = len(self.subdomains.keys())
+        stripped_subdomains_count = len(self.stripped_subdomains.keys())
 
         with open(fname, 'w+') as f:
             f.write(f"File name: {fname}\n")
@@ -124,7 +128,11 @@ class Deliverable:
                 f.write(f"{word}\t{freq}\n")
             f.write("\n")
             f.write("--- DELIVERABLE 4: SUBDOMAINS COUNT ---\n")
-            for subdomain, count in subdomains_count:
+            f.write(f"Raw subdomain count: {subdomains_count}\n")
+            f.write(f"Stripped subdomain count: {stripped_subdomains_count}\n")
+            f.write("\n")
+            f.write(f"Subdomain counts (alphabetically):\n")
+            for subdomain, count in sorted_subdomains:
                 f.write(f"{subdomain}\t{count}\n")
 
         self._json_dump()
@@ -144,6 +152,7 @@ class Deliverable:
             self.longest_page_url = other.longest_page_url
         self.words += other.words
         self.subdomains += other.subdomains
+        self.stripped_subdomains += other.stripped_subdomains
         self.unique_pages_seen |= other.unique_pages_seen
         return self
 
@@ -197,6 +206,7 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable
         # all valid links end with .uci.edu anyway, but
         assert "uci.edu" in parsed.netloc, f"Somehow processing {response_url}, despite it not being a valid URL."
         deliverable.subdomains[parsed.netloc] += 1
+        deliverable.subdomains[get_domain_name(parsed.netloc)] += 1
 
     except TypeError as e:
         log.error(e)
