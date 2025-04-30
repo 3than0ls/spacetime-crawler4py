@@ -7,7 +7,7 @@ import scraper
 import time
 from deliverables import Deliverable
 from crawler import Frontier
-import random
+import gc
 import time
 
 
@@ -30,6 +30,7 @@ class Worker(Thread):
 
     def run(self):
         try:
+            num_url_processed = 0
             while True:
                 tbd_url = self.frontier.get_tbd_url()
                 if tbd_url is None:
@@ -47,6 +48,8 @@ class Worker(Thread):
                     # self.logger.info(
                     #     f"Downloaded {tbd_url}, status <{resp.status}>, "
                     #     f"using cache {self.config.cache_server}.")
+                    num_url_processed += 1
+
 
                     scraped_urls = scraper.scraper(
                         tbd_url, resp, self.deliverable)
@@ -54,6 +57,12 @@ class Worker(Thread):
                         self.frontier.add_url(scraped_url)
 
                     self.frontier.mark_url_complete(tbd_url)
+
+                    # hail mary garbage collection so hopefully Linux stops killing my processes
+                    del resp
+                    del scraped_urls
+                    if num_url_processed % 20 == 0:
+                        gc.collect()
 
                     time.sleep(self.config.time_delay)
 

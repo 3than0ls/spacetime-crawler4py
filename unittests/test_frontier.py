@@ -16,6 +16,7 @@ from utils.server_registration import get_cache_server
 from utils.config import Config
 from utils import normalize, get_domain_name, get_urlhash
 import threading
+import io
 import random
 
 
@@ -36,9 +37,11 @@ class TestFrontier(unittest.TestCase):
 
     def test_seed_correct(self):
         f = Frontier(self.config, True)
-        # result = Frontier._load_into_domain(to_be_downloaded)
-        seeds = set(self.config.seed_urls)
-        self.assertIn("ics.uci.edu", set(f._domains_last_accessed.keys()))
+        ics = self.config.seed_urls[0]
+        self.assertIn(ics, f._frontier)
+        self.assertIn("ics.uci.edu", f._domains_last_accessed)
+        self.assertIn(get_urlhash(ics), f._seen_urls)
+        self.assertFalse(f.url_downloaded(get_urlhash(ics)))
         self.assertLess(
             f._domains_last_accessed['ics.uci.edu'], time.time())
 
@@ -54,7 +57,7 @@ class TestFrontier(unittest.TestCase):
         self.assertEqual(one_domain, "stat.uci.edu")
         self.assertTrue(
             time.time() - f._domains_last_accessed[one_domain] < 0.1)
-        self.assertTrue(len(f._frontier) == 4)
+        self.assertEqual(len(f._frontier), 4)
 
         two = f.get_tbd_url()
         two_domain = get_domain_name(urlparse(two).netloc)
@@ -81,6 +84,7 @@ class TestFrontier(unittest.TestCase):
         self.assertTrue(len(f._frontier) == 0)
 
         self.assertIsNone(f.get_tbd_url())
+        self.assertEqual(len(f._seen_urls), 4)
 
     def test_single_domain(self):
         f = Frontier(self.config, True)
@@ -297,21 +301,30 @@ class TestFrontier(unittest.TestCase):
 
     def test_simulation(self):
         f = Frontier(self.config, True)
-        f._frontier = ["https://one.com"]
-        base = f.get_tbd_url()
+        f._frontier = []
+        f.add_url("https://one.com")
+        self.assertIn("https://one.com", f._frontier)
+        self.assertIn(get_urlhash("https://one.com"), f._seen_urls)
+        self.assertTrue(f.url_seen(get_urlhash("https://one.com")))
 
         # download url and scrape
+        base = f.get_tbd_url()
         self.assertEqual(base, "https://one.com")
         scraped_urls = ["https://one.com/a", "https://one.com/b"]
         for url in scraped_urls:
             f.add_url(url)
 
         self.assertIn(scraped_urls[0], f._frontier)
-        self.assertIn(get_urlhash(scraped_urls[0]), f._found)
+        self.assertIn(get_urlhash(scraped_urls[0]), f._seen_urls)
+        self.assertTrue(f.url_seen(get_urlhash(scraped_urls[0])))
         self.assertIn(scraped_urls[1], f._frontier)
-        self.assertIn(get_urlhash(scraped_urls[1]), f._found)
+        self.assertIn(get_urlhash(scraped_urls[1]), f._seen_urls)
+        self.assertTrue(f.url_seen(get_urlhash(scraped_urls[1])))
+        
         f.mark_url_complete(base)
-        self.assertIn(get_urlhash("https://one.com"), f._downloaded)
+        self.assertTrue(f.url_seen(get_urlhash(base)))
+        self.assertIn(get_urlhash(base), f._seen_urls)
+        self.assertTrue(f.url_downloaded(get_urlhash(base)))
         self.assertIsNone(f.get_tbd_url())
         time.sleep(0.5)
 
@@ -319,20 +332,85 @@ class TestFrontier(unittest.TestCase):
         b = f.get_tbd_url()
         self.assertEqual(b, "https://one.com/b")
         f.mark_url_complete(b)
-        self.assertIn(get_urlhash("https://one.com/b"), f._downloaded)
+        self.assertIn(get_urlhash("https://one.com/b"), f._seen_urls)
+        self.assertTrue(f.url_downloaded(get_urlhash("https://one.com/b")))
         self.assertIsNone(f.get_tbd_url())
         time.sleep(0.5)
 
         a = f.get_tbd_url()
         self.assertEqual(a, "https://one.com/a")
         f.mark_url_complete(a)
-        self.assertIn(get_urlhash("https://one.com/a"), f._downloaded)
+        self.assertIn(get_urlhash("https://one.com/a"), f._seen_urls)
         self.assertIsNone(f.get_tbd_url())
         time.sleep(0.5)
 
         self.assertIsNone(f.get_tbd_url())
 
+    def test__load_save(self):
+        os.environ["TESTING"] = "false"
+        import shelve
+        save_file_path = os.path.join(self.config.save_file)
+        
+        # create shelf
+        urls = ["https://one.com", "https://two.com/page"]
+        f = Frontier(self.config, True)
+        f._seen_urls.clear()
+        for url in urls:
+            f.add_url(url)
+        f.mark_url_complete(f.get_tbd_url())
+        f._sync_shelf()
+        
+        f = Frontier(self.config, False)  # loads from tempfile
+        self.assertEqual(f._config.save_file, self.config.save_file)
+        # f._load_save()
+
+        self.assertEqual(len(f._seen_urls), 2)
+        self.assertIn(get_urlhash(urls[0]), f._seen_urls)
+        self.assertIn(get_urlhash(urls[0]), f._seen_urls)
+        self.assertIn("https://one.com", f._frontier)
+        self.assertNotIn("https://two.com/page", f._frontier)
+        
+        
+        self.assertIn("https://one.com", f._frontier)
+        self.assertIn(get_urlhash("https://one.com"), f._seen_urls)
+        self.assertTrue(f.url_seen(get_urlhash("https://one.com")))
+        self.assertFalse(f.url_downloaded(get_urlhash("https://one.com")))
+
+        self.assertNotIn("https://two.com/page", f._frontier)
+        self.assertIn(get_urlhash("https://two.com/page"), f._seen_urls)
+        self.assertTrue(f.url_seen(get_urlhash("https://two.com/page")))
+        self.assertTrue(f.url_downloaded(get_urlhash("https://two.com/page")))
+
+    def test_memload(self):
+        return
+        print("memload test... this will take a while\n")
+        f = Frontier(self.config, True)
+        f._frontier = []
+        f._domains_last_accessed.clear()
+        f._seen_urls.clear()
+        f.add_url("https://0.com")
+        length = 250000
+
+        for i in range(length):
+            f.get_tbd_url()
+            link = f"https://{i+1}{'x'*100}.com"
+            costly_memory_operation = io.StringIO("A" * 4000000).read() # 4 megabytes
+            url_hash = get_urlhash(link)
+            f.add_url(link)
+            self.assertTrue(f.url_seen(url_hash))
+            f.mark_url_complete(link)
+            self.assertTrue(f.url_downloaded(url_hash))
+
+        self.assertIsNotNone(f.get_tbd_url())
+        self.assertIsNone(f.get_tbd_url())
+        self.assertEqual(len(f._frontier), 0)
+        self.assertEqual(len(f._seen_urls), length+1)
+        self.assertEqual(len(f._can_access_domain), length+1)
+
     def tearDown(self):
+        os.environ["TESTING"] = "true"
+        if os.path.exists(self.config.save_file):
+            os.remove(self.config.save_file)
         self._delete_temp()
 
 

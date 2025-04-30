@@ -8,7 +8,7 @@ import json
 from deliverables import Deliverable, process_page
 from validate import VALID_SCHEMES, VALID_DOMAINS, INVALID_DOMAINS, INVALID_PATHS, INVALID_FRAGMENTS, INVALID_QUERIES, INVALID_PATH_SEGMENTS
 
-log = get_logger("SCRAPER", f"CRAWLER")
+log = get_logger("SCRAPER", f"FRONTIER")
 
 # https://canvas.eee.uci.edu/courses/72511/assignments/1584020
 

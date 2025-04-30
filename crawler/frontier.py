@@ -1,46 +1,66 @@
 import os
 import shelve
-
-from threading import Thread, RLock
-from queue import Queue, Empty
+import threading
 
 from utils import get_logger, get_urlhash, normalize, get_domain_name
-from scraper import is_valid
 
 from urllib.parse import urlparse
 import time
 import threading
 
-THREAD_LOCK = threading.Lock()
+THREAD_LOCK = threading.RLock()
 
 
 class Frontier(object):
     def __init__(self, config, restart):
         self.logger = get_logger("FRONTIER")
         self._config = config
+
         self._frontier = list()
+        self._seen_urls = {}  # url_hash: (url, downloaded)
+        self._domains_last_accessed = {}
+        
+        if restart or os.getenv("TESTING") == "true":
+            self._restart_save()
+        else:
+            self._load_save()
 
-        # set of URLs (hashed) that have been seen
-        self._found = set()
-        # set of URLs (hashed) that have bene downloaded
-        self._downloaded = set()
+    def _restart_save(self):          
+        assert len(self._frontier) == 0, "_restart_save() only to be called during initialization"
 
-        # skip the frontier
+        if os.path.exists(self._config.save_file):
+            os.remove(self._config.save_file)
+        
         self.logger.info(f"Starting from seed: {self._config.seed_urls}")
         for url in self._config.seed_urls:
             self.add_url(url)
-
-        # maintain a map of unique domain names to time accessed
-        self._domains_last_accessed = {}
-        for url in self._frontier:
             domain = get_domain_name(url)
             self._domains_last_accessed[domain] = 0
 
-    def empty(self):
+    def _load_save(self):
         if os.getenv("TESTING") == "true":
-            return len(self._frontier) == 0
-        else:
-            return len(self._frontier) == 0 and len(self._found) > len(self._config.seed_urls)
+            return
+        
+        assert len(self._frontier) == 0, "_load_save() only to be called during initialization"
+        
+        with shelve.open(self._config.save_file) as seen_urls:
+            for url_hash, (url, downloaded) in seen_urls.items():
+                if not downloaded:
+                    self._frontier.append(url)
+                self._seen_urls[url_hash] = (url, downloaded)
+                domain = get_domain_name(url)
+                self._domains_last_accessed[domain] = 0
+            self.logger.info(f"Starting from save in {self._config.save_file}. Added {len(self._frontier)} to frontier.")
+
+
+    def _unsafe_sync_shelf(self):
+        """Thread unsafe. Call this every once every period of time to sync shelf."""
+        if os.getenv("TESTING") == "true":
+            return
+    
+        with shelve.open(self._config.save_file) as seen_urls:
+            seen_urls.update(self._seen_urls)
+
 
     def _can_access_domain(self, domain):
         if domain not in self._domains_last_accessed:
@@ -52,10 +72,9 @@ class Frontier(object):
         return False
 
     def _set_domain_seen(self, domain):
-        with THREAD_LOCK:
-            self._domains_last_accessed[domain] = time.time()
+        self._domains_last_accessed[domain] = time.time()
 
-    def get_tbd_url(self):
+    def _unsafe_get_tbd_url(self):
         """Get the next URL from the frontier in a potentially non-thread-safe manner."""
         if self.empty():
             return None
@@ -74,28 +93,60 @@ class Frontier(object):
 
         return None
 
-    def add_url(self, url):
+    def _sync_shelf(self):
+        with THREAD_LOCK:
+            self._unsafe_sync_shelf()
+            
+    def _unsafe_add_url(self, url):
         """
         Add the URL to the frontier
         """
         url = normalize(url)
         urlhash = get_urlhash(url)
-        if urlhash not in self._found:
-            # we don't want to add the same URL twice to the frontier, so add it to found URLs
-            # this may occur when a URL is in a frontier, then the same URL is found on the page currently being scraped
-            # don't want to stop if that happens; just dont add it
-            self._found.add(urlhash)
+        if urlhash not in self._seen_urls:
+            self._seen_urls[urlhash] = (url, False)  # seen, but not downloaded
             self._frontier.append(url)
+        
+        # save _seen_url to shelf every 50 URLs processed
+        if len(self._seen_urls) % 50 == 0:
+            self._sync_shelf()
+
+    def url_seen(self, urlhash: str) -> bool:
+        """Takes a URL hash and determines if it has been seen"""
+        return urlhash in self._seen_urls
+    
+    def url_downloaded(self, urlhash: str) -> bool:
+        """Takes a URL hash and determines if it has been downloaded"""
+        return urlhash in self._seen_urls and self._seen_urls[urlhash][1]
+
+    def empty(self):
+        if os.getenv("TESTING") == "true":
+            return len(self._frontier) == 0
+        else:
+            return len(self._frontier) == 0 and len(self._seen_urls) > len(self._config.seed_urls)
+
+    def get_tbd_url(self):
+        with THREAD_LOCK:
+            return self._unsafe_get_tbd_url()
+
+    def add_url(self, url):
+        with THREAD_LOCK:
+            self._unsafe_add_url(url)
 
     def mark_url_complete(self, url):
         """
         Since the removal of the frontier save, this is no longer used.
         """
         urlhash = get_urlhash(url)
-        if urlhash in self._downloaded:
+        if self.url_downloaded(urlhash):
             # This should not happen.
             message = f"Marking url {url} as complete, but have already downloaded it before."
             self.logger.error(message)
             assert False, message
 
-        self._downloaded.add(urlhash)
+        if not self.url_seen(urlhash):
+            # this should not happen either
+            message = f"Marking url {url} as complete and downloaded, but have not seen it before."
+            self.logger.warning(message)
+
+        self._seen_urls[urlhash] = (url, True)
