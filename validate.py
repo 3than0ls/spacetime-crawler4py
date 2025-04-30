@@ -24,7 +24,11 @@ INVALID_DOMAINS = set([
 # thus must be handled differently; there is no "one set fits all"
 # these data and information was noticed to return a 608 during crawling, and found in robots.txt to be disallowed
 INVALID_PATHS = {
-    "ics.uci.edu": set(["/people", "/happening"]),
+    "ics.uci.edu": set([
+        "/people", "/happening",
+        # sadly, professor epstein's photos are contain low textual information, thus are classified as low information value
+        "/~eppstein/pix/"
+    ]),
     "cs.uci.edu": set(["/people", "/happening"]),
     # informatics and stat also have a path /wp-admin/admin-ajax.php that falls under /wp-admin,
     # and while it's valid, it contains literally zero data except a 0.
@@ -34,13 +38,27 @@ INVALID_PATHS = {
     "www-db.ics.uci.edu": set(["/cgi-bin", "/web-images", "/downloads", "/glimpse_index", "/pages/internal"]),
     # not actually disallowed, but this guy publishes a lot of blogs, and then has a bunch of tags for each blog
     # each tag doesn't actually produce new content; several tags point to the same content
-    "ngs.ics.uci.edu": set(["/tag"])
+    "ngs.ics.uci.edu": set(["/tag"]),
+    # https://swiki.ics.uci.edu has a lot of EXTREMELY low information value pages
+    "swiki.ics.uci.edu": set([
+        # a content file explorer that says I don't have read access anyway
+        "/doku.php/services:emailproofpoint",
+        # no access to; must log in
+        "/doku.php/services:database:mysql:unprivileged-users",
+        # leads to sitemap
+        "/doku.php/accounts:restore_unix_dot_files",
+        "/doku.php/commands:screen",
+    ]),
 }
 
 # paths that include these segments should be skipped
 INVALID_PATH_SEGMENTS = set([
     "files/pdf",
-    "file/pdf"
+    "file/pdf",
+    # ignores most low value gitlab links, but still maintains a decent amount of gitlab data
+    "/-/",
+    # http://www.cert.ics.uci.edu/seminar/EMWS09/Nanda/.../seminar/Nanda is some terrible crawler trap that probably uses relative path URLs
+    "/seminar/Nanda"
 ])
 
 
@@ -58,9 +76,16 @@ INVALID_QUERIES = set([
     "outlook=",
     "outlook-ical=",
     # redirect to is never a good query
-    "redirect_to="
+    "redirect_to=",
     # https://swiki.ics.uci.edu/doku.php/start?rev=X makes the rev query a crawler trap
-    "rev="
+    "rev=",
+    # https://swiki.ics.uci.edu/doku.php pages with queries that produce low information value pages
+    "do=media",
+    "do=login",
+    "do=backlink",
+    "idx=",  # always leads to sitemap
+    # sorted=created_asc or sorted-created_desc are just reformats for data, thus are low information
+    "sort=created_"
 ])
 
 # these fragments are associated with links that produce the exact same page, but pointing to a different section

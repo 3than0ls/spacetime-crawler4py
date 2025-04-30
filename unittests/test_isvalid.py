@@ -74,6 +74,14 @@ class TestIsValid(unittest.TestCase):
             is_valid(
                 "https://wics.ics.uci.edu/spring-2021-week-1-wics-first-general-meeting/?share=facebook")
         )
+        self.assertFalse(
+            is_valid(
+                "https://ngs.ics.uci.edu/wp-login.php?redirect_to=http%3A%2F%2Fngs.ics.uci.edu%2Fsocial-pixels%2F")
+        )
+        self.assertFalse(
+            is_valid(
+                "https://swiki.ics.uci.edu/doku.php/hardware:cluster:openlab?idx=group%3Asupport%3Anetworking")
+        )
 
     def test_avoid_path_segments(self):
         self.assertFalse(is_valid(
@@ -108,6 +116,9 @@ class TestIsValid(unittest.TestCase):
         self.assertFalse(is_valid("https://intranet.ics.uci.edu/"))
         self.assertFalse(
             is_valid("https://www-db.ics.uci.edu/glimpse_index/wgindex.shtml"))
+
+        self.assertFalse(
+            is_valid("http://www.cert.ics.uci.edu/EMWS09/seminar/Nanda/seminar/Nanda/seminar/Nanda/seminar/Nanda/seminar/Nanda/motivation.html"))
 
     def test_avoid_calendar_traps(self):
         self.assertFalse(
@@ -150,13 +161,15 @@ class TestIsValid(unittest.TestCase):
             is_valid("https://ngs.ics.uci.edu/becoming-impatient/#comment-3103")
         )
 
-    def test_swiki_specific(self):
+    def test_wiki_specific(self):
         self.assertTrue(
             is_valid("https://swiki.ics.uci.edu/doku.php"))
         self.assertTrue(
             is_valid("https://swiki.ics.uci.edu/doku.php/start?do=revisions"))
-        self.assertTrue(
+        self.assertFalse(
             is_valid("https://swiki.ics.uci.edu/doku.php/start?rev=1626126851"))
+        self.assertFalse(
+            is_valid("https://wiki.ics.uci.edu/doku.php/announce:fall-2017?idx=accounts%3Aemail"))
 
     def test_avoid_page_trap(self):
         self.assertFalse(
@@ -176,6 +189,9 @@ class TestIsValid(unittest.TestCase):
         )
         self.assertFalse(
             is_valid("https://ngs.ics.uci.edu/blog/page/184")
+        )
+        self.assertFalse(
+            is_valid("http://www.cert.ics.uci.edu/EMWS09/seminar/Nanda/seminar/Nanda/seminar/Nanda/seminar/Nanda/seminar/Nanda/seminar/Nanda/seminar/Nanda/seminar/Nanda/abstract.htm")
         )
         # arbitrary fake scenario
         self.assertFalse(

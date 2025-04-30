@@ -60,15 +60,17 @@ class Frontier(object):
         if self.empty():
             return None
 
-        for i in range(len(self._frontier)):
-            index = -1-i
-            current_url = self._frontier[index]
-            domain = get_domain_name(current_url)
-
-            if self._can_access_domain(domain):
-                self._set_domain_seen(domain)
-                del self._frontier[index]
-                return current_url
+        try:
+            for i in range(len(self._frontier)):
+                index = -1-i
+                current_url = self._frontier[index]
+                domain = get_domain_name(current_url)
+                if self._can_access_domain(domain):
+                    self._set_domain_seen(domain)
+                    del self._frontier[index]
+                    return current_url
+        except IndexError:
+            return None
 
         return None
 
@@ -97,7 +99,3 @@ class Frontier(object):
             assert False, message
 
         self._downloaded.add(urlhash)
-
-# link added to frontier
-# seen again in another page
-# link added to frontier
