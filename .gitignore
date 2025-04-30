@@ -1,6 +1,8 @@
 # custom ignores
 .webscraper-venv
 Deliverables
+frontier.shelve*
+temp.shelve*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -10,6 +10,7 @@ from crawler import Frontier
 from urllib.parse import urlparse
 import time
 import os
+import glob
 from configparser import ConfigParser
 from argparse import ArgumentParser
 from utils.server_registration import get_cache_server
@@ -22,10 +23,9 @@ import random
 
 class TestFrontier(unittest.TestCase):
     def _delete_temp(self):
-        for ext in ['bak', 'dat', 'dir']:
-            fname = self.config.save_file + "." + ext
-            if os.path.exists(fname):
-                os.remove(fname)
+        for file_path in glob.glob(f"{self.config.save_file}*"):
+            if os.path.isfile(file_path):
+                os.remove(file_path)
 
     def setUp(self):
         cparser = ConfigParser()
@@ -320,7 +320,7 @@ class TestFrontier(unittest.TestCase):
         self.assertIn(scraped_urls[1], f._frontier)
         self.assertIn(get_urlhash(scraped_urls[1]), f._seen_urls)
         self.assertTrue(f.url_seen(get_urlhash(scraped_urls[1])))
-        
+
         f.mark_url_complete(base)
         self.assertTrue(f.url_seen(get_urlhash(base)))
         self.assertIn(get_urlhash(base), f._seen_urls)
@@ -346,11 +346,11 @@ class TestFrontier(unittest.TestCase):
 
         self.assertIsNone(f.get_tbd_url())
 
-    def test__load_save(self):
+    def test_load_save(self):
         os.environ["TESTING"] = "false"
         import shelve
         save_file_path = os.path.join(self.config.save_file)
-        
+
         # create shelf
         urls = ["https://one.com", "https://two.com/page"]
         f = Frontier(self.config, True)
@@ -359,8 +359,17 @@ class TestFrontier(unittest.TestCase):
             f.add_url(url)
         f.mark_url_complete(f.get_tbd_url())
         f._sync_shelf()
-        
+        time.sleep(5)
+
+        self.assertEqual(f._config.save_file, self.config.save_file)
+        self.assertTrue(os.path.exists(self.config.save_file)
+                        or os.path.exists(self.config.save_file + ".dat"))
+
         f = Frontier(self.config, False)  # loads from tempfile
+        f._frontier.clear()  # bypass assertion that frontier must be empty
+        f._seen_urls.clear()
+        # print(f._seen_urls)
+        f._load_save()
         self.assertEqual(f._config.save_file, self.config.save_file)
         # f._load_save()
 
@@ -369,8 +378,7 @@ class TestFrontier(unittest.TestCase):
         self.assertIn(get_urlhash(urls[0]), f._seen_urls)
         self.assertIn("https://one.com", f._frontier)
         self.assertNotIn("https://two.com/page", f._frontier)
-        
-        
+
         self.assertIn("https://one.com", f._frontier)
         self.assertIn(get_urlhash("https://one.com"), f._seen_urls)
         self.assertTrue(f.url_seen(get_urlhash("https://one.com")))
@@ -394,7 +402,8 @@ class TestFrontier(unittest.TestCase):
         for i in range(length):
             f.get_tbd_url()
             link = f"https://{i+1}{'x'*100}.com"
-            costly_memory_operation = io.StringIO("A" * 4000000).read() # 4 megabytes
+            costly_memory_operation = io.StringIO(
+                "A" * 4000000).read()  # 4 megabytes
             url_hash = get_urlhash(link)
             f.add_url(link)
             self.assertTrue(f.url_seen(url_hash))
@@ -409,8 +418,6 @@ class TestFrontier(unittest.TestCase):
 
     def tearDown(self):
         os.environ["TESTING"] = "true"
-        if os.path.exists(self.config.save_file):
-            os.remove(self.config.save_file)
         self._delete_temp()
 
 

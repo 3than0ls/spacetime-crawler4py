@@ -50,7 +50,6 @@ class Worker(Thread):
                     #     f"using cache {self.config.cache_server}.")
                     num_url_processed += 1
 
-
                     scraped_urls = scraper.scraper(
                         tbd_url, resp, self.deliverable)
                     for scraped_url in scraped_urls:

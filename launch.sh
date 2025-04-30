@@ -1,4 +1,8 @@
 #!/bin/sh
 
-# python3 launch.py
-.webscraper-venv/bin/python3 launch.py
+ARGS=""
+if [ "$1" = "--restart" ]; then
+  ARGS="--restart"
+fi
+
+.webscraper-venv/bin/python3 launch.py $ARGS

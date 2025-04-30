@@ -1,12 +1,11 @@
+import time
+from urllib.parse import urlparse
+from utils import get_logger, get_urlhash, normalize, get_domain_name
 import os
 import shelve
 import threading
+import glob
 
-from utils import get_logger, get_urlhash, normalize, get_domain_name
-
-from urllib.parse import urlparse
-import time
-import threading
 
 THREAD_LOCK = threading.RLock()
 
@@ -19,18 +18,20 @@ class Frontier(object):
         self._frontier = list()
         self._seen_urls = {}  # url_hash: (url, downloaded)
         self._domains_last_accessed = {}
-        
-        if restart or os.getenv("TESTING") == "true":
+
+        if restart or os.getenv("TESTING") == "true" or not glob.glob(f"{self._config.save_file}*"):
             self._restart_save()
         else:
             self._load_save()
 
-    def _restart_save(self):          
-        assert len(self._frontier) == 0, "_restart_save() only to be called during initialization"
+    def _restart_save(self):
+        assert len(
+            self._frontier) == 0, "_restart_save() only to be called during initialization"
 
-        if os.path.exists(self._config.save_file):
-            os.remove(self._config.save_file)
-        
+        for file_path in glob.glob(f"{self._config.save_file}*"):
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+
         self.logger.info(f"Starting from seed: {self._config.seed_urls}")
         for url in self._config.seed_urls:
             self.add_url(url)
@@ -40,9 +41,10 @@ class Frontier(object):
     def _load_save(self):
         if os.getenv("TESTING") == "true":
             return
-        
-        assert len(self._frontier) == 0, "_load_save() only to be called during initialization"
-        
+
+        assert len(
+            self._frontier) == 0, "_load_save() only to be called during initialization"
+
         with shelve.open(self._config.save_file) as seen_urls:
             for url_hash, (url, downloaded) in seen_urls.items():
                 if not downloaded:
@@ -50,17 +52,17 @@ class Frontier(object):
                 self._seen_urls[url_hash] = (url, downloaded)
                 domain = get_domain_name(url)
                 self._domains_last_accessed[domain] = 0
-            self.logger.info(f"Starting from save in {self._config.save_file}. Added {len(self._frontier)} to frontier.")
+            self.logger.info(
+                f"Starting from save in {self._config.save_file}. Added {len(self._frontier)} to frontier.")
 
-
-    def _unsafe_sync_shelf(self):
-        """Thread unsafe. Call this every once every period of time to sync shelf."""
+    def _sync_shelf(self):
+        """Call this every once every period of time to sync shelf."""
         if os.getenv("TESTING") == "true":
             return
-    
+
         with shelve.open(self._config.save_file) as seen_urls:
             seen_urls.update(self._seen_urls)
-
+            seen_urls.sync()
 
     def _can_access_domain(self, domain):
         if domain not in self._domains_last_accessed:
@@ -93,10 +95,6 @@ class Frontier(object):
 
         return None
 
-    def _sync_shelf(self):
-        with THREAD_LOCK:
-            self._unsafe_sync_shelf()
-            
     def _unsafe_add_url(self, url):
         """
         Add the URL to the frontier
@@ -106,7 +104,7 @@ class Frontier(object):
         if urlhash not in self._seen_urls:
             self._seen_urls[urlhash] = (url, False)  # seen, but not downloaded
             self._frontier.append(url)
-        
+
         # save _seen_url to shelf every 50 URLs processed
         if len(self._seen_urls) % 50 == 0:
             self._sync_shelf()
@@ -114,7 +112,7 @@ class Frontier(object):
     def url_seen(self, urlhash: str) -> bool:
         """Takes a URL hash and determines if it has been seen"""
         return urlhash in self._seen_urls
-    
+
     def url_downloaded(self, urlhash: str) -> bool:
         """Takes a URL hash and determines if it has been downloaded"""
         return urlhash in self._seen_urls and self._seen_urls[urlhash][1]
