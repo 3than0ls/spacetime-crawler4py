@@ -21,102 +21,146 @@ As a concrete deliverable of this project, besides the code itself, you must sub
 """
 
 from datetime import datetime
-from bs4 import BeautifulSoup
 from collections import Counter
-from utils import get_logger, get_domain_name
-from urllib.parse import urlparse, urldefrag
-from deliverables.tokenization import get_words
 import os
 import json
+import shelve
+import glob
+from dataclasses import dataclass, field
+from collections import Counter
+from urllib.parse import urldefrag, urlparse
+from bs4 import BeautifulSoup
+
+from deliverables.tokenization import get_words
+from utils import get_logger
+from threading import RLock
+
+
+DELIVERABLES_LOCK = RLock()
+
+
+@dataclass
+class RawDeliverableData:
+    """All data stored here is independent of one another; and it is all accumulated into GlobalDeliverableData"""
+    url_word_map: dict = field(default_factory=dict)
+    total_urls_seen: int = 0
+    words: Counter = field(default_factory=Counter)
+    subdomains: Counter = field(default_factory=Counter)
+    finished: bool = False
 
 
 log = get_logger("DELIVERABLE", f"CRAWLER")
 
-
-_DELIVERABLES_DIRNAME = "Deliverables"
-
-
-class Deliverable:
+class GlobalDeliverableData:
     """
-    Responsible for managing the data used in the project deliverable for one worker. 
-    When single threaded, this object represents the deliverables for the entire crawl.
-    When multithreaded, the deliverables must be merged together before producing the final deliverable data.
+    Responsible for managing the data used in the project deliverable. Stores all it's data in a shelf.
+    All threads essentially pipe their RawDeliverableData to this, which then saves it into a shelf.
+    The program can stop; and as long as the global deliverable data isn't marked as finished, subsequent
+    crawler start ups will continue to update this shelf.
     """
+    DELIVERABLES_DIRNAME = "Output"  # keep it in current directory
 
-    def __init__(self, deliverable_id=None):
-        self._deliverable_id = deliverable_id
-        self._timestamp = datetime.now().strftime("%m-%d:%H:%M:%S")
+    @staticmethod
+    def create_deliverables_dir():
+        if not os.path.exists(GlobalDeliverableData.DELIVERABLES_DIRNAME):
+            os.makedirs(GlobalDeliverableData.DELIVERABLES_DIRNAME)
 
-        # map of URL to content size (in number of tokens)
-        # the keys of this provide UNIQUE_URLS [deprecated]
-        # the values provide some insightful debugging data
-        self.url_token_sizes = dict()  # url: num of tokens
+    @staticmethod
+    def get_previous_deliverable_fname() -> str | None:
+        files = [file for file in glob.glob(GlobalDeliverableData.DELIVERABLES_DIRNAME + "/deliverables*.shelve*") if os.path.isfile(file)]
+        for file in files:
+            with shelve.open(file) as raw_dev_data:
+                if not raw_dev_data.get("finished", False):
+                    return file
+        else:
+            return None
 
-        # unique pages SEEN versus unique pages DOWNLOADED
-        # only vaild pages are downloaded
-        # this counts unique pages seen
-        self.unique_pages_seen = set()
 
-        # for the page with longest length
-        self.longest_page_len = 0
-        self.longest_page_url = None
+    def __init__(self, shelve_name=None):
+        if shelve_name is None:
+            # get previous shelf
+            previous_shelve = GlobalDeliverableData.get_previous_deliverable_fname()
+            if previous_shelve is None:
+                GlobalDeliverableData.create_deliverables_dir()
+                self._shelve_path = f"{GlobalDeliverableData.DELIVERABLES_DIRNAME}/deliverables-{datetime.now().strftime('%m-%d-%H-%M-%S')}.shelve"
+            else:
+                self._shelve_path = previous_shelve
+        else:
+            self._shelve_path = shelve_name
+        
+        with shelve.open(self._shelve_path) as raw_dev_data:
+            raw_dev_data.setdefault("url_word_map", {})
+            raw_dev_data.setdefault("total_urls_seen", 0)
+            raw_dev_data.setdefault("words", Counter())
+            raw_dev_data.setdefault("subdomains", Counter())
+            raw_dev_data.setdefault("finished", False)
 
-        # for the 50 most common words
-        self.words = Counter()
+        self._basename = self._shelve_path.split(".shelve")[0]
 
-        # for the count of subdomains
-        self.subdomains = Counter()
-        # same as subdomains, but with www. stripped
-        self.stripped_subdomains = Counter()
+    
+    def get_raw(self) -> RawDeliverableData:
+        """Return a read-only version of the deliverable data"""
+        with shelve.open(self._shelve_path) as raw_dev_data:
+            out = RawDeliverableData(
+                url_word_map=raw_dev_data["url_word_map"],
+                total_urls_seen=raw_dev_data["total_urls_seen"],
+                words=raw_dev_data["words"],
+                subdomains=raw_dev_data["subdomains"],
+                finished=raw_dev_data["finished"]
+            )
 
-    def _create_deliverables_dir(self):
-        if not os.path.exists(_DELIVERABLES_DIRNAME):
-            os.makedirs(_DELIVERABLES_DIRNAME)
+        return out
 
-    def _json_dump(self, fname=None):
-        if fname is None:
-            fname = f"deliverables-{self._timestamp}-dump.json"
+    def mark_finished(self):
+        with shelve.open(self._shelve_path) as raw_dev_data:
+            raw_dev_data["finished"] = True
+            
+    def update(self, batch: RawDeliverableData):
+        with DELIVERABLES_LOCK:
+            with shelve.open(self._shelve_path, writeback=True) as raw_dev_data:
+                raw_dev_data["url_word_map"].update(batch.url_word_map)
+                raw_dev_data["total_urls_seen"] += batch.total_urls_seen
+                raw_dev_data["words"] += batch.words
+                raw_dev_data["subdomains"] += batch.subdomains
+                raw_dev_data.sync()
 
-        fname = os.path.join(_DELIVERABLES_DIRNAME, fname)
-        self._create_deliverables_dir()
+    def _json_dump(self):
+        """A completed JSON dump of a finished deliverable. Only to be called after output()"""
+        json_path = f"{self._basename}-dump.json"
+        out = self.get_raw()
 
-        with open(fname, 'w+') as f:
+        log.info(f"JSON dumped deliverables to file {json_path}")
+
+        with open(json_path, 'w+') as f:
             json.dump(
                 {
-                    "url_token_size": self.url_token_sizes,
-                    "longest_page": {
-                        "len": self.longest_page_len,
-                        "url": self.longest_page_url
-                    },
-                    "words": dict(self.words),
-                    "subdomains": dict(self.subdomains)
+                    "url_word_map": out.url_word_map,
+                    "total_urls_seen": out.total_urls_seen,
+                    "words": dict(out.words),
+                    "subdomains": dict(out.subdomains)
                 }, fp=f, sort_keys=True, indent=4
             )
 
-    def output(self, fname=None):
-        if fname is None:
-            fname = f"deliverables-{self._timestamp}"
+    def output(self):
+        GlobalDeliverableData.create_deliverables_dir()
+        log.info(f"Outputting deliverables found in {self._shelve_path}")
 
-        self._create_deliverables_dir()
-        fname = os.path.join(_DELIVERABLES_DIRNAME, fname)
-
-        num_unique_valid_urls = len(self.url_token_sizes)
-        num_urls_seen = len(self.unique_pages_seen)
-        longest_page = self.longest_page_url
-        longest_page_len = self.longest_page_len
-        top_words = sorted(self.words.items(),
-                           key=lambda x: (-x[1], x[0]))[:50]
+        out = self.get_raw()
+        num_unique_valid_urls = len(out.url_word_map)
+        num_urls_seen = out.total_urls_seen
+        longest_page, longest_page_len = Counter(out.url_word_map).most_common(1)[0]
+        top_words = out.words.most_common(50)
+        subdomains_count = len(out.subdomains)
         sorted_subdomains = sorted(
-            self.subdomains.items(), key=lambda x: (x[0], x[1]))
-        subdomains_count = len(self.subdomains.keys())
-        stripped_subdomains_count = len(self.stripped_subdomains.keys())
+            out.subdomains.items(), key=lambda x: (x[0], x[1]))
 
-        with open(fname, 'w+') as f:
-            f.write(f"File name: {fname}\n")
-            f.write(f"Deliverable ID: {self._deliverable_id}\n")
+        deliverable_path = f"{self._basename}.txt"
+        with open(deliverable_path, 'w+') as f:
+            f.write(f"Deliverable path: {deliverable_path}\n")
+            f.write(f"Deliverable ID: {self._basename}\n")
             f.write("\n")
             f.write("--- DELIVERABLE 1: NUMBER OF UNIQUE PAGES ---\n")
-            f.write(f"UNIQUE PAGES (VALID): {num_unique_valid_urls}\n")
+            f.write(f"UNIQUE PAGES (DOWNLOADED): {num_unique_valid_urls}\n")
             f.write(f"UNIQUE URLS (SEEN): {num_urls_seen}\n")
             f.write("\n")
             f.write("--- DELIVERABLE 2: LONGEST PAGE IN WORDS ---\n")
@@ -129,87 +173,49 @@ class Deliverable:
             f.write("\n")
             f.write("--- DELIVERABLE 4: SUBDOMAINS COUNT ---\n")
             f.write(f"Raw subdomain count: {subdomains_count}\n")
-            f.write(f"Stripped subdomain count: {stripped_subdomains_count}\n")
             f.write("\n")
             f.write(f"Subdomain counts (alphabetically):\n")
             for subdomain, count in sorted_subdomains:
                 f.write(f"{subdomain}\t{count}\n")
 
+        log.info(f"Outputted deliverables to file {deliverable_path}")
+
         self._json_dump()
 
-    def __or__(self, other: "Deliverable") -> "Deliverable":
-        raise NotImplementedError("Use ior (the |=) operator instead.")
-
-    def __ior__(self, other: "Deliverable") -> None:
-        """
-        Merge two deliverables! Just a neat way to do this.
-        Used in the accumulate function below, and to "join" the worker's deliverable with process_page's output.
-        Almost doing too much.
-        """
-        self.url_token_sizes |= other.url_token_sizes
-        if other.longest_page_len >= self.longest_page_len:
-            self.longest_page_len = other.longest_page_len
-            self.longest_page_url = other.longest_page_url
-        self.words += other.words
-        self.subdomains += other.subdomains
-        self.stripped_subdomains += other.stripped_subdomains
-        self.unique_pages_seen |= other.unique_pages_seen
-        return self
-
-    @staticmethod
-    def accumulate(deliverables: list["Deliverable"]) -> "Deliverable":
-        """
-        For multithreading purposes; but can be used if len(deliverables) is 1 too (single threaded).
-        Accumulates the values in the deliverables to produce one new final deliverable.
-        """
-        log.info(
-            f"Accumulating {len(deliverables)} into a single deliverable object.")
-        accumulated = Deliverable("--FINAL--")
-
-        for deliverable in deliverables:
-            accumulated |= deliverable
-
-        return accumulated
 
 
-def process_page(response_url: str, response_soup: BeautifulSoup) -> Deliverable:
+def process_page(response_url: str, response_soup: BeautifulSoup) -> RawDeliverableData:
     """
     Process a response's url and content (in the form of bs4 BeautifulSoup) to help answer deliverable questions.
     Returns a deliverable representing the data gleaned from the url/page/soup.
     """
-    deliverable = Deliverable(response_url)
+    raw_deliverable = RawDeliverableData()
     try:
         # log.info(f"Processing page {response_url}")
         page_text = response_soup.get_text(separator=' ', strip=True)
         words = get_words(page_text)
         num_words = sum(words.values())
 
-        # DELIVERABLE: UNIQUE PAGES [SEEN]
+        # DELIVERABLE: UNIQUE PAGES [DOWNLOADED] and LONGEST PAGE
         unique_url = urldefrag(response_url)[0]
-        deliverable.url_token_sizes[unique_url] = num_words
+        raw_deliverable.url_word_map[unique_url] = num_words
 
         links = response_soup.find_all('a', href=True)
         unique_urls_in_page = set(urldefrag(link['href'])[0] for link in links)
-        deliverable.unique_pages_seen |= unique_urls_in_page
-
-        # DELIVERABLE: LONGEST PAGE
-        # words are tokens that have HTML tags filtered out;
-        # whether or not we define tokens to already not include HTMl tags is TBD
-        deliverable.longest_page_url = response_url
-        deliverable.longest_page_len = num_words
+        raw_deliverable.total_urls_seen += len(unique_urls_in_page)
 
         # DELIVERABLE: MOST COMMON WORDS
-        deliverable.words += words
+        raw_deliverable.words += words
 
         # DELIVERABLE: SUBDOMAIN COUNT
         parsed = urlparse(response_url)
         # all valid links end with .uci.edu anyway, but
         assert "uci.edu" in parsed.netloc, f"Somehow processing {response_url}, despite it not being a valid URL."
-        deliverable.subdomains[parsed.netloc] += 1
-        deliverable.stripped_subdomains[get_domain_name(parsed.netloc)] += 1
+        raw_deliverable.subdomains[parsed.netloc] = 1
 
     except TypeError as e:
         log.error(e)
         raise e
 
-    return deliverable
+    return raw_deliverable
+

@@ -175,7 +175,7 @@ class TestIsValid(unittest.TestCase):
     def test_wiki_specific(self):
         self.assertTrue(
             is_valid("https://swiki.ics.uci.edu/doku.php"))
-        self.assertTrue(
+        self.assertFalse(
             is_valid("https://swiki.ics.uci.edu/doku.php/start?do=revisions"))
         self.assertFalse(
             is_valid("https://swiki.ics.uci.edu/doku.php/start?rev=1626126851"))

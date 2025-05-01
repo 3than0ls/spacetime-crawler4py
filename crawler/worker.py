@@ -5,26 +5,27 @@ from utils.download import download
 from utils import get_logger
 import scraper
 import time
-from deliverables import Deliverable
+from deliverables import RawDeliverableData, GlobalDeliverableData
 from crawler import Frontier
 import gc
 import time
 
 
 class Worker(Thread):
-    def __init__(self, worker_id, config, frontier: Frontier):
+    def __init__(self, worker_id, config, frontier: Frontier, global_deliverable: GlobalDeliverableData):
         self.logger = get_logger(f"Worker-{worker_id}", "Worker")
         self.logger.info(f"Starting worker {worker_id}...")
         self.worker_id = worker_id
         self.config = config
         self.frontier = frontier
+
+        self.global_deliverable = global_deliverable
+
         # basic check for requests in scraper
         assert {getsource(scraper).find(req) for req in {
             "from requests import", "import requests"}} == {-1}, "Do not use requests in scraper.py"
         assert {getsource(scraper).find(req) for req in {"from urllib.request import",
                                                          "import urllib.request"}} == {-1}, "Do not use urllib.request in scraper.py"
-
-        self.deliverable = Deliverable(deliverable_id=worker_id)
 
         super().__init__(daemon=True)
 
@@ -51,7 +52,8 @@ class Worker(Thread):
                     num_url_processed += 1
 
                     scraped_urls = scraper.scraper(
-                        tbd_url, resp, self.deliverable)
+                        tbd_url, resp, self.global_deliverable)
+
                     for scraped_url in scraped_urls:
                         self.frontier.add_url(scraped_url)
 
@@ -63,6 +65,9 @@ class Worker(Thread):
                     if num_url_processed % 20 == 0:
                         gc.collect()
 
+                    # if num_url_processed % 3 == 0:
+                    #     raise Exception("UPDATING GLOBALS AND STOPPING AFTER 3")
+
                     time.sleep(self.config.time_delay)
 
             self.logger.info(f"Worker {self.worker_id} shutting down.")
@@ -70,3 +75,6 @@ class Worker(Thread):
             self.logger.exception(
                 f"Worker {self.worker_id} encountered a critical error: {e}")
             raise e
+
+        self._update_global_deliverables()
+

@@ -1,2 +1,2 @@
-from deliverables.deliverables import Deliverable, process_page
 from deliverables.tokenization import get_words
+from deliverables.deliverables import GlobalDeliverableData, RawDeliverableData, process_page

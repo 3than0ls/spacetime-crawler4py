@@ -4,8 +4,7 @@ from utils.response import Response
 from utils import get_logger
 from datetime import datetime
 from bs4 import BeautifulSoup
-import json
-from deliverables import Deliverable, process_page
+from deliverables import process_page, GlobalDeliverableData
 from validate import VALID_SCHEMES, VALID_DOMAINS, INVALID_DOMAINS, INVALID_PATHS, INVALID_FRAGMENTS, INVALID_QUERIES, INVALID_PATH_SEGMENTS
 
 log = get_logger("SCRAPER", f"FRONTIER")
@@ -13,7 +12,7 @@ log = get_logger("SCRAPER", f"FRONTIER")
 # https://canvas.eee.uci.edu/courses/72511/assignments/1584020
 
 
-def scraper(url, resp: Response, deliverable: Deliverable) -> list[str]:
+def scraper(url, resp: Response, global_deliverable: GlobalDeliverableData) -> list[str]:
     """
     I would much rather call this function "process_response" and still have it return a list with the hyperlinks
 
@@ -71,7 +70,10 @@ def scraper(url, resp: Response, deliverable: Deliverable) -> list[str]:
 
     # now that we know the raw response is something vaild, process it into a soup and use it
     soup = BeautifulSoup(resp.raw_response.content, "html.parser")
-    deliverable |= process_page(resp.raw_response.url, soup)
+
+    deliverable_data = process_page(resp.raw_response.url, soup)
+    global_deliverable.update(deliverable_data)
+    
     links = extract_next_links(url, soup)
 
     return links

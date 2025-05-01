@@ -1,7 +1,6 @@
 import unittest
 from bs4 import BeautifulSoup
 from scraper import extract_next_links
-from utils.response import Response
 
 
 class TestExtractNextLinks(unittest.TestCase):
