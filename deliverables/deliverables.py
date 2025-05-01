@@ -129,7 +129,7 @@ class GlobalDeliverableData:
         json_path = f"{self._basename}-dump.json"
         out = self.get_raw()
 
-        log.info(f"JSON dumped deliverables to file {json_path}")
+        log.info(f"JSON dumping deliverables to file {json_path}")
 
         with open(json_path, 'w+') as f:
             json.dump(
@@ -143,7 +143,6 @@ class GlobalDeliverableData:
 
     def output(self):
         GlobalDeliverableData.create_deliverables_dir()
-        log.info(f"Outputting deliverables found in {self._shelve_path}")
 
         out = self.get_raw()
         num_unique_valid_urls = len(out.url_word_map)
@@ -155,6 +154,7 @@ class GlobalDeliverableData:
             out.subdomains.items(), key=lambda x: (x[0], x[1]))
 
         deliverable_path = f"{self._basename}.txt"
+        log.info(f"Outputting deliverables found in {deliverable_path}")
         with open(deliverable_path, 'w+') as f:
             f.write(f"Deliverable path: {deliverable_path}\n")
             f.write(f"Deliverable ID: {self._basename}\n")
@@ -177,8 +177,6 @@ class GlobalDeliverableData:
             f.write(f"Subdomain counts (alphabetically):\n")
             for subdomain, count in sorted_subdomains:
                 f.write(f"{subdomain}\t{count}\n")
-
-        log.info(f"Outputted deliverables to file {deliverable_path}")
 
         self._json_dump()
 
