@@ -40,7 +40,6 @@ class Frontier(object):
             domain = get_domain_name(url)
             self._domains_last_accessed[domain] = 0
 
-
     def _load_save(self):
         if os.getenv("TESTING") == "true":
             return
@@ -60,7 +59,7 @@ class Frontier(object):
     def _test_clear_seen_urls(self):
         with shelve.open(self._config.save_file) as seen_urls:
             seen_urls.clear()
-            
+
     # def _sync_shelf(self):
     #     """Call this every once every period of time to sync shelf."""
     #     if os.getenv("TESTING") == "true":

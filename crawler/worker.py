@@ -65,9 +65,6 @@ class Worker(Thread):
                     if num_url_processed % 20 == 0:
                         gc.collect()
 
-                    # if num_url_processed % 3 == 0:
-                    #     raise Exception("UPDATING GLOBALS AND STOPPING AFTER 3")
-
                     time.sleep(self.config.time_delay)
 
             self.logger.info(f"Worker {self.worker_id} shutting down.")
@@ -77,4 +74,3 @@ class Worker(Thread):
             raise e
 
         self._update_global_deliverables()
-

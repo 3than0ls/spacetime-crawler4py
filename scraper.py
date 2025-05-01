@@ -73,7 +73,7 @@ def scraper(url, resp: Response, global_deliverable: GlobalDeliverableData) -> l
 
     deliverable_data = process_page(resp.raw_response.url, soup)
     global_deliverable.update(deliverable_data)
-    
+
     links = extract_next_links(url, soup)
 
     return links

@@ -51,6 +51,7 @@ class RawDeliverableData:
 
 log = get_logger("DELIVERABLE", f"CRAWLER")
 
+
 class GlobalDeliverableData:
     """
     Responsible for managing the data used in the project deliverable. Stores all it's data in a shelf.
@@ -67,14 +68,14 @@ class GlobalDeliverableData:
 
     @staticmethod
     def get_previous_deliverable_fname() -> str | None:
-        files = [file for file in glob.glob(GlobalDeliverableData.DELIVERABLES_DIRNAME + "/deliverables*.shelve*") if os.path.isfile(file)]
+        files = [file for file in glob.glob(
+            GlobalDeliverableData.DELIVERABLES_DIRNAME + "/deliverables*.shelve*") if os.path.isfile(file)]
         for file in files:
             with shelve.open(file) as raw_dev_data:
                 if not raw_dev_data.get("finished", False):
                     return file
         else:
             return None
-
 
     def __init__(self, shelve_name=None):
         if shelve_name is None:
@@ -87,7 +88,7 @@ class GlobalDeliverableData:
                 self._shelve_path = previous_shelve
         else:
             self._shelve_path = shelve_name
-        
+
         with shelve.open(self._shelve_path) as raw_dev_data:
             raw_dev_data.setdefault("url_word_map", {})
             raw_dev_data.setdefault("total_urls_seen", 0)
@@ -97,7 +98,6 @@ class GlobalDeliverableData:
 
         self._basename = self._shelve_path.split(".shelve")[0]
 
-    
     def get_raw(self) -> RawDeliverableData:
         """Return a read-only version of the deliverable data"""
         with shelve.open(self._shelve_path) as raw_dev_data:
@@ -114,7 +114,7 @@ class GlobalDeliverableData:
     def mark_finished(self):
         with shelve.open(self._shelve_path) as raw_dev_data:
             raw_dev_data["finished"] = True
-            
+
     def update(self, batch: RawDeliverableData):
         with DELIVERABLES_LOCK:
             with shelve.open(self._shelve_path, writeback=True) as raw_dev_data:
@@ -147,7 +147,8 @@ class GlobalDeliverableData:
         out = self.get_raw()
         num_unique_valid_urls = len(out.url_word_map)
         num_urls_seen = out.total_urls_seen
-        longest_page, longest_page_len = Counter(out.url_word_map).most_common(1)[0]
+        longest_page, longest_page_len = Counter(
+            out.url_word_map).most_common(1)[0]
         top_words = out.words.most_common(50)
         subdomains_count = len(out.subdomains)
         sorted_subdomains = sorted(
@@ -179,7 +180,6 @@ class GlobalDeliverableData:
                 f.write(f"{subdomain}\t{count}\n")
 
         self._json_dump()
-
 
 
 def process_page(response_url: str, response_soup: BeautifulSoup) -> RawDeliverableData:
@@ -216,4 +216,3 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> RawDelivera
         raise e
 
     return raw_deliverable
-

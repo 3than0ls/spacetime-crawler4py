@@ -5,11 +5,13 @@ import os
 import threading
 from bs4 import BeautifulSoup
 
+
 class TestDeliverables(unittest.TestCase):
     def _delete_temp(self):
         if os.path.isdir(GlobalDeliverableData.DELIVERABLES_DIRNAME):
             for filename in os.listdir(GlobalDeliverableData.DELIVERABLES_DIRNAME):
-                file_path = os.path.join(GlobalDeliverableData.DELIVERABLES_DIRNAME, filename)
+                file_path = os.path.join(
+                    GlobalDeliverableData.DELIVERABLES_DIRNAME, filename)
                 if os.path.isfile(file_path):
                     os.remove(file_path)
 
@@ -21,7 +23,6 @@ class TestDeliverables(unittest.TestCase):
     def tearDown(self):
         self._delete_temp()
         os.rmdir(GlobalDeliverableData.DELIVERABLES_DIRNAME)
-
 
     def test_deliverable_single_thread(self):
         g = GlobalDeliverableData()
@@ -47,11 +48,11 @@ class TestDeliverables(unittest.TestCase):
         self.assertDictEqual(
             g.get_raw().url_word_map,
             {
-                "fake_url_hash_0": 6,             
-                "fake_url_hash_1": 6,            
-                "fake_url_hash_2": 6,           
-                "fake_url_hash_3": 6,          
-                "fake_url_hash_4": 6        
+                "fake_url_hash_0": 6,
+                "fake_url_hash_1": 6,
+                "fake_url_hash_2": 6,
+                "fake_url_hash_3": 6,
+                "fake_url_hash_4": 6
             }
         )
         self.assertEqual(g.get_raw().total_urls_seen, 5*5)
@@ -61,13 +62,13 @@ class TestDeliverables(unittest.TestCase):
             g.get_raw().subdomains,
             {
                 "fake_url_domain_0": 1,
-                "fake_url_domain_1": 1,            
+                "fake_url_domain_1": 1,
                 "fake_url_domain_2": 1,
-                "fake_url_domain_3": 1,          
-                "fake_url_domain_4": 1        
+                "fake_url_domain_3": 1,
+                "fake_url_domain_4": 1
             }
         )
-        
+
     def test_deliverable_multi_thread(self):
         g = GlobalDeliverableData()
 
@@ -78,6 +79,7 @@ class TestDeliverables(unittest.TestCase):
         self.assertEqual(g.get_raw().subdomains, Counter())
 
         batches = 5
+
         def worker(thread_id):
             for i in range(batches):
                 fake_data = RawDeliverableData(
@@ -101,21 +103,25 @@ class TestDeliverables(unittest.TestCase):
         g.mark_finished()
         self.assertEqual(g.get_raw().finished, True)
 
-        expected_url_word_map = {f"fake_url_hash_{tid}_{i}": 6 for tid in range(4) for i in range(5)}
-        expected_subdomains = {f"fake_url_domain_{tid}_{i}": 1 for tid in range(4) for i in range(5)}
+        expected_url_word_map = {
+            f"fake_url_hash_{tid}_{i}": 6 for tid in range(4) for i in range(5)}
+        expected_subdomains = {
+            f"fake_url_domain_{tid}_{i}": 1 for tid in range(4) for i in range(5)}
 
         self.assertDictEqual(g.get_raw().url_word_map, expected_url_word_map)
-        self.assertEqual(g.get_raw().total_urls_seen, 4 * batches * 5)  # 4 threads * 5 batches * 5 URLs each
+        # 4 threads * 5 batches * 5 URLs each
+        self.assertEqual(g.get_raw().total_urls_seen, 4 * batches * 5)
         self.assertEqual(g.get_raw().words["foo"], 4 * batches * 1)
         self.assertEqual(g.get_raw().words["bar"], 4 * batches * 2)
         self.assertEqual(g.get_raw().words["baz"], 4 * batches * 3)
         self.assertDictEqual(g.get_raw().subdomains, expected_subdomains)
 
-
-    def test_get_deliverable_name(self): 
-        self.assertEqual(GlobalDeliverableData.get_previous_deliverable_fname(), None)
+    def test_get_deliverable_name(self):
+        self.assertEqual(
+            GlobalDeliverableData.get_previous_deliverable_fname(), None)
         g = GlobalDeliverableData()
-        self.assertEqual(GlobalDeliverableData.get_previous_deliverable_fname(), g._shelve_path)
+        self.assertEqual(
+            GlobalDeliverableData.get_previous_deliverable_fname(), g._shelve_path)
         fake_data = RawDeliverableData(
             url_word_map={"fake": 1},
             total_urls_seen=5,
@@ -123,18 +129,21 @@ class TestDeliverables(unittest.TestCase):
             subdomains=Counter({"fake": 1})
         )
         g.update(fake_data)
-        self.assertEqual(GlobalDeliverableData.get_previous_deliverable_fname(), g._shelve_path)
+        self.assertEqual(
+            GlobalDeliverableData.get_previous_deliverable_fname(), g._shelve_path)
         g.mark_finished()
-        self.assertEqual(GlobalDeliverableData.get_previous_deliverable_fname(), None)
-        
+        self.assertEqual(
+            GlobalDeliverableData.get_previous_deliverable_fname(), None)
+
         import time
         time.sleep(1)
 
         g = GlobalDeliverableData()
-        self.assertEqual(GlobalDeliverableData.get_previous_deliverable_fname(), g._shelve_path)
+        self.assertEqual(
+            GlobalDeliverableData.get_previous_deliverable_fname(), g._shelve_path)
         g.mark_finished()
-        self.assertEqual(GlobalDeliverableData.get_previous_deliverable_fname(), None)
-
+        self.assertEqual(
+            GlobalDeliverableData.get_previous_deliverable_fname(), None)
 
     def test_process_page(self):
         with open("./unittests/test.html", 'r') as f:
@@ -149,12 +158,13 @@ class TestDeliverables(unittest.TestCase):
         self.assertEqual(len(deliverable.url_word_map), 1)
         self.assertTrue("ics.uci.edu" in deliverable.subdomains)
         self.assertEqual(len(deliverable.subdomains), 1)
-        self.assertEqual(Counter(deliverable.url_word_map).most_common(1)[0][0], "https://ics.uci.edu/notreal")
-        self.assertEqual(Counter(deliverable.url_word_map).most_common(1)[0][1], 45)
+        self.assertEqual(Counter(deliverable.url_word_map).most_common(1)[
+                         0][0], "https://ics.uci.edu/notreal")
+        self.assertEqual(
+            Counter(deliverable.url_word_map).most_common(1)[0][1], 45)
 
         self.assertEqual(deliverable.words['foo'], 4)
-        self.assertEqual(len(deliverable.words), 8) 
-
+        self.assertEqual(len(deliverable.words), 8)
 
     def test_accumuluate_deliverable(self):
         A = RawDeliverableData()
@@ -174,7 +184,7 @@ class TestDeliverables(unittest.TestCase):
         final.update(B)
 
         final = final.get_raw()
-        
+
         self.assertEqual(final.url_word_map,
                          A.url_word_map | B.url_word_map)
         self.assertEqual(final.words,
@@ -193,12 +203,15 @@ class TestDeliverables(unittest.TestCase):
 
         deliverable = GlobalDeliverableData()
         deliverable.update(process_page("https://TEST_FOO.uci.edu", foo_soup))
-        deliverable.update(process_page("https://TEST_BAR.uci.edu/longer_page#IGNORE_FRAG", bar_soup))
+        deliverable.update(process_page(
+            "https://TEST_BAR.uci.edu/longer_page#IGNORE_FRAG", bar_soup))
 
         deliverable = deliverable.get_raw()
 
-        self.assertEqual(Counter(deliverable.url_word_map).most_common(1)[0][1], 116)
-        self.assertEqual(Counter(deliverable.url_word_map).most_common(1)[0][0], "https://TEST_BAR.uci.edu/longer_page")
+        self.assertEqual(
+            Counter(deliverable.url_word_map).most_common(1)[0][1], 116)
+        self.assertEqual(Counter(deliverable.url_word_map).most_common(1)[
+                         0][0], "https://TEST_BAR.uci.edu/longer_page")
         self.assertEqual(set(deliverable.url_word_map.keys()), set(
             ["https://TEST_FOO.uci.edu", "https://TEST_BAR.uci.edu/longer_page"]))
         self.assertEqual(set(deliverable.subdomains.keys()), set(
@@ -206,6 +219,7 @@ class TestDeliverables(unittest.TestCase):
         self.assertEqual(deliverable.words["foo"], 115)
         self.assertEqual(deliverable.words["bar"], 116)
         self.assertEqual(deliverable.words["baz"], 0)  # baz not a word
+
 
 if __name__ == '__main__':
     unittest.main()

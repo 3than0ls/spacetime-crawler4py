@@ -375,7 +375,6 @@ class TestFrontier(unittest.TestCase):
         self.assertTrue(f.url_seen(get_urlhash("https://two.com/page")))
         self.assertTrue(f.url_downloaded(get_urlhash("https://two.com/page")))
 
-
     def tearDown(self):
         os.environ["TESTING"] = "true"
         self._delete_temp()
