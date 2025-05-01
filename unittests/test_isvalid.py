@@ -86,6 +86,7 @@ class TestIsValid(unittest.TestCase):
     def test_avoid_path_segments(self):
         self.assertFalse(is_valid(
             "https://www.informatics.uci.edu/files/pdf/InformaticsBrochure-March2018"))
+        # the gitlab ones (no tests written)
 
     def test_hardcoded_robotstxt(self):
         self.assertFalse(
@@ -119,6 +120,16 @@ class TestIsValid(unittest.TestCase):
 
         self.assertFalse(
             is_valid("http://www.cert.ics.uci.edu/EMWS09/seminar/Nanda/seminar/Nanda/seminar/Nanda/seminar/Nanda/seminar/Nanda/motivation.html"))
+
+        self.assertFalse(is_valid(
+            "http://www.ics.uci.edu/~ziv/ooad/intro_to_se/sld006.htm"
+        ))
+        self.assertFalse(is_valid(
+            "http://www.ics.uci.edu/~ziv/ooad/classes/sld010.htm"
+        ))
+        self.assertTrue(is_valid(
+            "http://www.ics.uci.edu/~ziv/ooad/classes"
+        ))
 
     def test_avoid_calendar_traps(self):
         self.assertFalse(
@@ -170,6 +181,8 @@ class TestIsValid(unittest.TestCase):
             is_valid("https://swiki.ics.uci.edu/doku.php/start?rev=1626126851"))
         self.assertFalse(
             is_valid("https://wiki.ics.uci.edu/doku.php/announce:fall-2017?idx=accounts%3Aemail"))
+        self.assertFalse(
+            is_valid("https://wiki.ics.uci.edu/doku.php/accounts:snapshots"))
 
     def test_avoid_page_trap(self):
         self.assertFalse(

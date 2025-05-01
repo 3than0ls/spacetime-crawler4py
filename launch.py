@@ -10,7 +10,9 @@ def main(config_file, restart):
     cparser = ConfigParser()
     cparser.read(config_file)
     config = Config(cparser)
+    print("Connecting to cache server...")
     config.cache_server = get_cache_server(config, restart)
+    print("Starting crawler and logs...")
     crawler = Crawler(config, restart)
     crawler.start()
 

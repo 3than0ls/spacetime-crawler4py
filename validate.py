@@ -27,7 +27,10 @@ INVALID_PATHS = {
     "ics.uci.edu": set([
         "/people", "/happening",
         # sadly, professor epstein's photos are contain low textual information, thus are classified as low information value
-        "/~eppstein/pix/"
+        "/~eppstein/pix/",
+        # everyything under these two is low information value, since they're just picture slides. the pages themselves are fine though
+        "/~ziv/ooad/classes/",
+        "/~ziv/ooad/intro_to_se/"
     ]),
     "cs.uci.edu": set(["/people", "/happening"]),
     # informatics and stat also have a path /wp-admin/admin-ajax.php that falls under /wp-admin,
@@ -39,7 +42,7 @@ INVALID_PATHS = {
     # not actually disallowed, but this guy publishes a lot of blogs, and then has a bunch of tags for each blog
     # each tag doesn't actually produce new content; several tags point to the same content
     "ngs.ics.uci.edu": set(["/tag"]),
-    # https://swiki.ics.uci.edu has a lot of EXTREMELY low information value pages
+    # https://swiki.ics.uci.edu and https://wiki.ics.uci.edu has a lot of EXTREMELY low information value pages
     "swiki.ics.uci.edu": set([
         # a content file explorer that says I don't have read access anyway
         "/doku.php/services:emailproofpoint",
@@ -49,16 +52,29 @@ INVALID_PATHS = {
         "/doku.php/accounts:restore_unix_dot_files",
         "/doku.php/commands:screen",
     ]),
+    "wiki.ics.uci.edu": set([  # same as above
+        "/doku.php/services:emailproofpoint",
+        "/doku.php/services:database:mysql:unprivileged-users",
+        "/doku.php/accounts:restore_unix_dot_files",
+        "/doku.php/commands:screen",
+    ]),
+    # this part of the website leads to some really weird calendar trap
+    "cert.ics.uci.edu": set([
+        "/EMWS09"
+    ])
+
 }
 
 # paths that include these segments should be skipped
 INVALID_PATH_SEGMENTS = set([
     "files/pdf",
     "file/pdf",
-    # ignores most low value gitlab links, but still maintains a decent amount of gitlab data
+    # ignores most low value gitlab links, such as commits, but still maintains a decent amount of gitlab data
     "/-/",
     # http://www.cert.ics.uci.edu/seminar/EMWS09/Nanda/.../seminar/Nanda is some terrible crawler trap that probably uses relative path URLs
-    "/seminar/Nanda"
+    "/seminar/Nanda",
+    # wiki: doku.php/accounts:* are 99% of the time Insufficient Privilege page
+    "/accounts:",
 ])
 
 
@@ -79,12 +95,14 @@ INVALID_QUERIES = set([
     "redirect_to=",
     # https://swiki.ics.uci.edu/doku.php/start?rev=X makes the rev query a crawler trap
     "rev=",
-    # https://swiki.ics.uci.edu/doku.php pages with queries that produce low information value pages
+    # wiki/doku.php pages with queries that produce low information value pages
     "do=media",
     "do=login",
     "do=backlink",
+    "do=edit",
+    "do=",  # in fact; they're all bad
     "idx=",  # always leads to sitemap
-    # sorted=created_asc or sorted-created_desc are just reformats for data, thus are low information
+    # gitlab, sorted=created_asc or sorted-created_desc are just reformats for data, thus are low information
     "sort=created_"
 ])
 
