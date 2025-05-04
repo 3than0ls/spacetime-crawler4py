@@ -1,13 +1,13 @@
 import re
 from urllib.parse import urlparse, urldefrag, urljoin
 from utils.response import Response
-from utils import get_logger
-from datetime import datetime
+from utils import get_logger, normalize
 from bs4 import BeautifulSoup
 from deliverables import process_page, GlobalDeliverableData
-from validate import VALID_SCHEMES, VALID_DOMAINS, INVALID_DOMAINS, INVALID_PATHS, INVALID_FRAGMENTS, INVALID_QUERIES, INVALID_PATH_SEGMENTS
+from validate import VALID_SCHEMES, VALID_DOMAINS, INVALID_DOMAINS, INVALID_PATHS, INVALID_FRAGMENTS, INVALID_QUERIES, INVALID_PATH_SEGMENTS, FILE_EXT_PATTERN, ANY_NUMBER_PATTERN, CALENDAR_TRAP_PATTERN
 
-log = get_logger("SCRAPER", f"FRONTIER")
+f_log = get_logger("SCRAPER", f"FRONTIER")
+w_log = get_logger("PROCESSED", f"Worker")
 
 # https://canvas.eee.uci.edu/courses/72511/assignments/1584020
 
@@ -32,49 +32,53 @@ def scraper(url, resp: Response, global_deliverable: GlobalDeliverableData) -> l
     """
     links = []
 
+    # A unique page:
+    # - has a 200 status code
     if not resp.status == 200:
-        log.error(
+        f_log.error(
             f"Response error status <{resp.status}> - from fetched for {url}, acquired from {resp.url}")
-        if resp.raw_response is not None:
-            # log.error(
-            #     f"Response raw response: {resp.raw_response.content}")
-            pass
         return links
 
+    # - has a non-empty response body
     # functions both as error handling for 200 status with no raw response, and a type check guarantee
-    if resp.raw_response is None or resp.raw_response.url is None or resp.raw_response.content is None:
-        log.error(
-            f"Response returned a 200 code, yet had no raw response or missing raw URL.")
+    if resp.raw_response is None or resp.raw_response.content is None:
+        f_log.error(
+            f"Response returned a 200 code, yet had no raw response.")
         return links
 
+    # - has a valid URL
     # if we're somehow redirected that is invalid (typically out of domain), return an empty list
-    if not is_valid(resp.raw_response.url):
+    if not is_valid(resp.url):
         return links
 
     # log.info(
     #     f"Processing page fetched for {url}, acquired from {resp.url}")
     # log.info(f"Page contents length: {len(resp.raw_response.content)}")
-    content_length = len(resp.raw_response.content)
 
     if url != resp.url:
-        log.warning(
+        f_log.warning(
             f"Fetched URL was not an exact match with response URL ({url} and {resp.url})")
     if url not in resp.url:
-        log.warning(
+        f_log.warning(
             f"Fetched URL was not near match with response URL ({url} and {resp.url})")
 
+    content_length = len(resp.raw_response.content)
     if content_length < 100:
-        log.warning(
+        f_log.warning(
             f"{resp.url} contents contain little information, despite returning 200.")
         # log.warning(f"{resp.url} contents: {resp.raw_response}")
 
     # now that we know the raw response is something vaild, process it into a soup and use it
     soup = BeautifulSoup(resp.raw_response.content, "html.parser")
 
-    deliverable_data = process_page(resp.raw_response.url, soup)
+    deliverable_data = process_page(resp.url, soup)
     global_deliverable.update(deliverable_data)
 
     links = extract_next_links(url, soup)
+
+    # note that the response URL may not be the same as the unique URL; the unique URL is defragmented and then normalized
+    w_log.info(
+        f"Processed unique page with unique URL {normalize(urldefrag(resp.url)[0])} containing {deliverable_data.words.total()} words.")
 
     return links
 
@@ -92,25 +96,6 @@ def extract_next_links(url, soup: BeautifulSoup) -> list[str]:
     unique_links = set([urldefrag(url)[0] for url in scraped_links])
     valid_links = [link for link in unique_links if is_valid(link)]
     return valid_links
-
-
-FILE_EXT_PATTERN = re.compile(
-    r".*\.(css|js|bmp|gif|jpe?g|ico"
-    + r"|png|tiff?|mid|mp2|mp3|mp4"
-    + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
-    + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|ppsx|odc|git|db|war"
-    + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
-    + r"|epub|dll|cnf|tgz|sha1"
-    + r"|thmx|mso|arff|rtf|jar|csv"
-    + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$")
-
-CALENDAR_TRAP_PATTERN = re.compile(
-    r"(?:\d{2}|\d{4})\D+\d{1,2}\D+\d{1,2}|"
-    + r"\d{1,2}\D+\d{1,2}\D+(?:\d{2}|\d{4})|"
-    + r"(?:\d{2}|\d{4})\D+\d{1,2}|"
-    + r"\d{1,2}\D+(?:\d{2}|\d{4})")
-
-ANY_NUMBER_PATTERN = re.compile(r"\d+")
 
 
 def is_valid(url):
@@ -167,14 +152,22 @@ def is_valid(url):
             return False
 
         # avoid crawler traps (all)
-        path_parts = parsed.path.split("/")
+        path_parts = [part for part in parsed.path.split("/") if part != '']
         query_parts = parsed.query.split("&")
 
         # avoid calendar traps by avoiding paths that look like they contain a calendar
         # anything that looks like a calendar is probably evil
-        if any(
-            CALENDAR_TRAP_PATTERN.search(path_part)
-            for path_part in [*path_parts, *query_parts, parsed.path]
+        # make an exception in which domain/YYYY/MM/DD/article_name
+        if (
+            any(
+                CALENDAR_TRAP_PATTERN.search(path_part)
+                for path_part in [*path_parts, *query_parts, parsed.path]
+            ) and
+            not (len(path_parts) > 3 and
+                 ANY_NUMBER_PATTERN.match(path_parts[-4]) and len(path_parts[-4]) == 4 and
+                 ANY_NUMBER_PATTERN.match(path_parts[-3]) and len(path_parts[-3]) == 2 and
+                 ANY_NUMBER_PATTERN.match(path_parts[-2]) and len(path_parts[-2]) == 2 and
+                 len(path_parts[-1]) > 0)
         ):
             return False
 
@@ -182,16 +175,16 @@ def is_valid(url):
         if any((invalid_fragment in parsed.fragment) for invalid_fragment in INVALID_FRAGMENTS):
             return False
 
-        # avoid /page/X issues
-        processed_path_parts = [part for part in path_parts if part != '']
+        # # avoid /page/X issues; if X is greater than 500, something is up...
         # ensure the path /page/X can exist and is being followed
-        if len(processed_path_parts) >= 2 \
-                and processed_path_parts[-2] == "page" \
-                and ANY_NUMBER_PATTERN.search(processed_path_parts[-1]):
+        if len(path_parts) >= 2 \
+                and path_parts[-2] == "page" \
+                and ANY_NUMBER_PATTERN.search(path_parts[-1]) \
+                and int(path_parts[-1]) > 500:
             return False
 
         return True
 
     except TypeError:
-        log.error("TypeError for ", parsed)
+        f_log.error("TypeError for ", parsed)
         raise

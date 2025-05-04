@@ -40,8 +40,8 @@ class Worker(Thread):
                             "Frontier is empty. Stopping Crawler.")
                         break
                     else:
-                        # self.logger.info(
-                        #     "Respecting politeness delay since there are no free links to download. Idling Crawler.")
+                        self.logger.info(
+                            "Respecting politeness delay since there are no free links to download. Idling Crawler.")
                         time.sleep(self.config.time_delay)
                 else:
                     self.logger.info(f"Fetching {tbd_url}")
@@ -72,5 +72,3 @@ class Worker(Thread):
             self.logger.exception(
                 f"Worker {self.worker_id} encountered a critical error: {e}")
             raise e
-
-        self._update_global_deliverables()

@@ -24,7 +24,7 @@ class Frontier(object):
             self._load_save()
 
         # used in empty(), set in restart_save() or load_save()
-        self._initial_url_count = len(self._frontier)
+        self._last_updated = time.time()
 
     def _restart_save(self):
         assert len(
@@ -110,6 +110,7 @@ class Frontier(object):
             if urlhash not in seen_urls:
                 seen_urls[urlhash] = (url, False)  # seen, but not downloaded
                 self._frontier.append(url)
+                self._last_updated = time.time()
 
         # if urlhash not in self._seen_urls:
         #     self._seen_urls[urlhash] = (url, False)  # seen, but not downloaded
@@ -139,7 +140,11 @@ class Frontier(object):
         if os.getenv("TESTING") == "true":
             return len(self._frontier) == 0
         else:
-            return len(self._frontier) == 0 and self._initial_url_count > len(self._config.seed_urls)
+            # there is an issue we want to avoid when the seed URLs or loaded URLs in the frontier
+            # are less than number of workers, causing the workers to shut down
+            # but the seed URLs scrape in a ton of URLs, essentially causing the workers to shut down for no reason
+            # return len(self._frontier) == 0 and self._initial_url_count > len(self._config.seed_urls)
+            return len(self._frontier) == 0 and time.time() - self._last_updated > 10
 
     def get_tbd_url(self):
         with THREAD_LOCK:

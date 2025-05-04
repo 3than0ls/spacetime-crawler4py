@@ -341,6 +341,16 @@ class TestFrontier(unittest.TestCase):
 
         self.assertIsNone(f.get_tbd_url())
 
+    def test_emnpty_frontier(self):
+        os.environ["TESTING"] = "false"
+        f = Frontier(self.config, True)
+        f._test_clear_seen_urls()
+        f._frontier = ["a"]
+        f.get_tbd_url()
+        self.assertFalse(f.empty())
+        time.sleep(10)
+        self.assertTrue(f.empty())
+
     def test_load_save(self):
         os.environ["TESTING"] = "false"
         import shelve

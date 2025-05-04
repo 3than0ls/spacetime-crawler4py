@@ -32,7 +32,7 @@ from urllib.parse import urldefrag, urlparse
 from bs4 import BeautifulSoup
 
 from deliverables.tokenization import get_words
-from utils import get_logger
+from utils import get_logger, normalize
 from threading import RLock
 
 
@@ -122,7 +122,6 @@ class GlobalDeliverableData:
                 raw_dev_data["total_urls_seen"] += batch.total_urls_seen
                 raw_dev_data["words"] += batch.words
                 raw_dev_data["subdomains"] += batch.subdomains
-                raw_dev_data.sync()
 
     def _json_dump(self):
         """A completed JSON dump of a finished deliverable. Only to be called after output()"""
@@ -159,6 +158,7 @@ class GlobalDeliverableData:
         with open(deliverable_path, 'w+') as f:
             f.write(f"Deliverable path: {deliverable_path}\n")
             f.write(f"Deliverable ID: {self._basename}\n")
+            f.write(f"Deliverable Completed: {out.finished}\n")
             f.write("\n")
             f.write("--- DELIVERABLE 1: NUMBER OF UNIQUE PAGES ---\n")
             f.write(f"UNIQUE PAGES (DOWNLOADED): {num_unique_valid_urls}\n")
@@ -177,7 +177,7 @@ class GlobalDeliverableData:
             f.write("\n")
             f.write(f"Subdomain counts (alphabetically):\n")
             for subdomain, count in sorted_subdomains:
-                f.write(f"{subdomain}\t{count}\n")
+                f.write(f"{subdomain}, {count}\n")
 
         self._json_dump()
 
@@ -195,7 +195,7 @@ def process_page(response_url: str, response_soup: BeautifulSoup) -> RawDelivera
         num_words = sum(words.values())
 
         # DELIVERABLE: UNIQUE PAGES [DOWNLOADED] and LONGEST PAGE
-        unique_url = urldefrag(response_url)[0]
+        unique_url = normalize(urldefrag(response_url)[0])
         raw_deliverable.url_word_map[unique_url] = num_words
 
         links = response_soup.find_all('a', href=True)
