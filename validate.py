@@ -84,6 +84,8 @@ INVALID_PATH_SEGMENTS = set([
     "/seminar/Nanda",
     # wiki: doku.php/accounts:* are 99% of the time Insufficient Privilege page
     "/accounts:",
+    # is a PDF, does not end with .PDF
+    "20-secret-sharing-aggregation-TKDE-shantanu"
 ])
 
 
@@ -128,7 +130,7 @@ FILE_EXT_PATTERN = re.compile(
     r".*\.(css|js|bmp|gif|jpe?g|ico"
     + r"|png|tiff?|mid|mp2|mp3|mp4"
     + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
-    + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|ppsx|odc|git|db|war|img|apk|bib"
+    + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|ppsx|odc|git|db|war|img|apk|bib|ff"
     + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
     + r"|epub|dll|cnf|tgz|sha1"
     + r"|thmx|mso|arff|rtf|jar|csv"
